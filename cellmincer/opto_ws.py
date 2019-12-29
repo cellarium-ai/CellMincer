@@ -144,6 +144,8 @@ class OptopatchDenoisingWorkspace:
         self.target_width = target_width
         self.target_height = target_height
         self.dtype = dtype
+        self.padded_width = target_width
+        self.padded_height = target_height
         
         # estimate fg scale for normalization
         fg_scale = ws_base.movie_t_std_xy[ws_base.cosine_fg_sim_otsu_fg_pixel_mask_xy].mean()
@@ -199,3 +201,7 @@ class OptopatchDenoisingWorkspace:
         
     def get_slice(self, begin_t_index: int, end_t_index: int) -> np.ndarray:
         return self.padded_movie_1txy[:, begin_t_index:end_t_index, ...]
+
+    @property
+    def n_global_features(self):
+        return self.features_1fxy.shape[-3]

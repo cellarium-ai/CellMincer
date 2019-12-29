@@ -260,13 +260,10 @@ def generate_occluded_training_data(
         t_order: int,
         t_tandem: int,
         n_batch: int,
-        movie_width: int,
-        movie_height: int,
-        padded_width: int,
-        padded_height: int,
         occlusion_prob: float,
         only_fg_pixels: bool,
-        include_mask: bool = False,
+        continuity_reg_strength: float,
+        noise_threshold_to_std: float,
         device: torch.device = torch.device('cuda'),
         dtype: torch.dtype = torch.float32):
     """Generates minibatches with appropriate occlusion and padding for training a blind
@@ -275,20 +272,24 @@ def generate_occluded_training_data(
     assert t_order % 2 == 1
     assert t_tandem % 2 == 0
     
+    movie_width, movie_height = (
+        ws_base_list[0].width,
+        ws_base_list[0].height)
+    
+    padded_width, padded_height = (
+        ws_denoising_list[0].padded_width,
+        ws_denoising_list[0].padded_height)
+    
     n_datasets = len(ws_denoising_list)
-    n_global_features = ws_denoising_list[0].features_1fxy.shape[-3]
+    n_global_features = ws_denoising_list[0].n_global_features
+    std_f_index = ws_denoising_list[0].feature_names.index('std')
     global_features_f_begin_index = 0
     global_features_f_end_index = n_global_features
+    movie_f_index = n_global_features
+    n_input_features_per_frame = n_global_features + 1
+    
     t_total = t_order + t_tandem
     t_mid = (t_order + t_tandem - 1) // 2
-
-    if include_mask:
-        n_input_features_per_frame = n_global_features + 2
-        mask_f_index = n_global_features 
-        movie_f_index = n_global_features + 1
-    else:
-        n_input_features_per_frame = n_global_features + 1
-        movie_f_index = n_global_features 
     
     # sample random dataset indices
     dataset_indices = np.random.randint(0, n_datasets, size=n_batch)
@@ -354,10 +355,10 @@ def generate_occluded_training_data(
 
     # occlude the movie with mask
     padded_sliced_movie_ntxy[
-        :, (t_mid - (t_tandem // 2)):(t_mid + (t_tandem // 2) + 1), :, :] = \
-        padded_sliced_movie_ntxy[
-            :, (t_mid - (t_tandem // 2)):(t_mid + (t_tandem // 2) + 1), :, :] * (
-                1. - padded_occlusion_masks_ntxy)
+        :,
+        (t_mid - (t_tandem // 2)):(t_mid + (t_tandem // 2) + 1),
+        :,
+        :] *= (1. - padded_occlusion_masks_ntxy)
 
     # replace masked pixels by spatio-temporal kNN average
     for i_t in range(t_tandem + 1):
@@ -368,30 +369,29 @@ def generate_occluded_training_data(
 
     # put togeher
     feature_enriched_occluded_input_ntfxy = torch.zeros(
-        (n_batch, t_total, n_input_features_per_frame, padded_width, padded_height),
+        (n_batch,
+         t_total,
+         n_input_features_per_frame,
+         padded_width,
+         padded_height),
         device=device, dtype=dtype)
 
     # copy global features
     feature_enriched_occluded_input_ntfxy[
         :, :, global_features_f_begin_index:global_features_f_end_index, :, :] = torch.cat(
-        tuple(torch.tensor(ws_denoising_list[i_dataset].features_1fxy,
-                           device=device, dtype=dtype).unsqueeze(0)
+        tuple(torch.tensor(
+            ws_denoising_list[i_dataset].features_1fxy,
+            device=device, dtype=dtype).unsqueeze(0)
               for i_dataset in dataset_indices), dim=0).expand(
-        n_batch, t_total, n_global_features, padded_width, padded_height)
-
-    if include_mask:
-        # copy mask
-        feature_enriched_occluded_input_ntfxy[
-            :,
-            (t_mid - (t_tandem // 2)):(t_mid + (t_tandem // 2) + 1),
-            mask_f_index:(mask_f_index + 1),
-            :,
-            :] = padded_occlusion_masks_ntxy
-
+        n_batch,
+        t_total,
+        n_global_features,
+        padded_width,
+        padded_height)
+    
     # copy occluded movie
     feature_enriched_occluded_input_ntfxy[
-        :, :, movie_f_index:(movie_f_index + 1), :, :] = padded_sliced_movie_ntxy.view(
-        n_batch, t_total, 1, padded_width, padded_height)
+        :, :, movie_f_index, :, :] = padded_sliced_movie_ntxy
                 
     return {
         'feature_enriched_occluded_input_ntfxy': feature_enriched_occluded_input_ntfxy,
@@ -399,24 +399,36 @@ def generate_occluded_training_data(
         'padded_occlusion_masks_ntxy': padded_occlusion_masks_ntxy,
         'dataset_indices': dataset_indices,
         't_begin_indices': t_begin_indices,
-        't_end_indices': t_end_indices
+        't_end_indices': t_end_indices,
+        'global_features_f_begin_index': global_features_f_begin_index,
+        'global_features_f_end_index': global_features_f_end_index,
+        'movie_f_index': movie_f_index,
+        'std_f_index': std_f_index,
+        'continuity_reg_strength': continuity_reg_strength,
+        'noise_threshold_to_std': noise_threshold_to_std
     }
-
+    
 
 def get_loss(batch_data,
+             ws_base_list: List[OptopatchBaseWorkspace],
              ws_denoising_list: List[OptopatchDenoisingWorkspace],
              per_frame_feature_extractor: torch.nn.Module,
              temporal_combiner: torch.nn.Module,
-             movie_width: int,
-             movie_height: int,
              norm_p: int,
              enable_continuity_reg: bool,
-             pass_global_features_to_combiner: bool,
-             continuity_reg_strength: float):
+             reg_func: str,
+             eps: float = 1e-6):
     """Calculates the loss of a blind denoiser on a given minibatch."""
+    
+    assert reg_func in {'clamped_linear', 'tanh'}
+    
+    movie_width, movie_height = (
+        ws_base_list[0].width,
+        ws_base_list[0].height)
+    
     # shorthand
     input_ntfxy = batch_data['feature_enriched_occluded_input_ntfxy']
-    
+
     # shapes
     n_batch, t_total, n_input_features, width, height = input_ntfxy.shape
     t_tandem = batch_data['padded_occlusion_masks_ntxy'].shape[-3] - 1
@@ -430,12 +442,10 @@ def get_loss(batch_data,
     # process each batch and frame
     frame_features_mlxy = per_frame_feature_extractor(flat_input_features_mfxy)
     
-    # generate input for the combiner
-    n_global_features = ws_denoising_list[0].features_1fxy.shape[-3]
-    global_features_f_begin_index = 0
-    global_features_f_end_index = n_global_features
-    global_features_nfxy = crop_center(
-        input_ntfxy[:, 0, global_features_f_begin_index:global_features_f_end_index, ...],
+    # constant features -- these are included in input_ntfxy and are the
+    # same for every time index; we get it from the first time index
+    constant_features_nfxy = crop_center(
+        input_ntfxy[:, 0, :batch_data['movie_f_index'], ...],
         target_width=frame_features_mlxy.shape[-2],
         target_height=frame_features_mlxy.shape[-1])
     
@@ -450,9 +460,9 @@ def get_loss(batch_data,
     # iterate over the middle frames and accumulate loss
     def add_to_loss(loss, err, norm_p=norm_p, scale=1.):
         if norm_p == 1:
-            c_loss = scale * err.abs().sum()
+            c_loss = (scale * err.abs()).sum()
         elif norm_p == 2:
-            c_loss = scale * err.pow(2).sum()
+            c_loss = (scale * err.pow(2)).sum()
         else:
             raise ValueError('Only norm 1 and norm 2 are supported!')
         if loss is None:
@@ -463,27 +473,38 @@ def get_loss(batch_data,
     loss = None
     prev_cropped_combiner_output_nxy = None
     
+    cropped_movie_t_std_nxy = crop_center(
+        constant_features_nfxy[:, batch_data['std_f_index'], ...],
+        target_width=movie_width,
+        target_height=movie_height)
+
+    rec_loss = None
+    reg_loss = None
+
+    # calcualate the loss for every frame; also, TV loss between frames if enabled
     for i_t in range(t_tandem + 1):
 
-        if pass_global_features_to_combiner:
-            combiner_input_ncxy = torch.cat(
-                (frame_features_nqxy[:, (i_t * t_stride):((i_t + t_order) * t_stride), ...],
-                 global_features_nfxy), dim=-3)
-        else:
-            combiner_input_ncxy = frame_features_nqxy[:, (i_t * t_stride):((i_t + t_order) * t_stride), ...]
+        combiner_input_ncxy = torch.cat(
+            (constant_features_nfxy,
+             frame_features_nqxy[:, (i_t * t_stride):((i_t + t_order) * t_stride), ...]),
+            dim=-3)
         
         # combine!
         combiner_output_nxy = temporal_combiner(combiner_input_ncxy)[:, 0, ...]
 
-        # crop mask and combiner output
+        # crop mask
         cropped_mask_nxy = crop_center(
             batch_data['padded_occlusion_masks_ntxy'][:, i_t, ...],
             target_width=movie_width,
             target_height=movie_height)
+        
+        # crop combiner output
         cropped_combiner_output_nxy = crop_center(
             combiner_output_nxy,
             target_width=movie_width,
             target_height=movie_height)
+        
+        # crop expected output
         expected_output_nxy = crop_center(
             batch_data['padded_middle_frames_ntxy'][:, i_t, ...],
             target_width=movie_width,
@@ -491,59 +512,82 @@ def get_loss(batch_data,
 
         # reconstruction loss
         err = cropped_mask_nxy * (cropped_combiner_output_nxy - expected_output_nxy)
-        loss = add_to_loss(loss, err)
-        
+        rec_loss = add_to_loss(rec_loss, err)
+                
         # temporal continuity loss
         if enable_continuity_reg:
+            
             if prev_cropped_combiner_output_nxy is not None:
-                loss = add_to_loss(
-                    err=(cropped_combiner_output_nxy - prev_cropped_combiner_output_nxy),
-                    loss=loss,
+                
+                # need to scale the regularization by masked fraction to make
+                # the scaling of reconstruction loss and regularization commensurate
+                # with each other
+                
+                total_masked_pixels_n = cropped_mask_nxy.sum((-1, -2)).type(
+                    cropped_combiner_output_nxy.dtype)
+                total_pixels = movie_width * movie_height
+                masked_fraction_n = total_masked_pixels_n / total_pixels
+                
+                if reg_func == 'clamped_linear':
+                    
+                    soft_thresholded_delta_nxy = torch.clamp(
+                        (cropped_combiner_output_nxy - prev_cropped_combiner_output_nxy) / (
+                            eps + cropped_movie_t_std_nxy),
+                        min=0.,
+                        max=batch_data['noise_threshold_to_std'])
+                    
+                elif reg_func == 'tanh':
+                    
+                    eta = eps + batch_data['noise_threshold_to_std']
+                    soft_thresholded_delta_nxy = eta * torch.tanh(
+                        (cropped_combiner_output_nxy - prev_cropped_combiner_output_nxy) / (
+                            (eps + cropped_movie_t_std_nxy) * eta))
+                    
+                reg_loss = add_to_loss(
+                    err=soft_thresholded_delta_nxy,
+                    loss=reg_loss,
                     norm_p=norm_p,
-                    scale=continuity_reg_strength)
+                    scale=batch_data['continuity_reg_strength'] * masked_fraction_n[:, None, None])
+                
             prev_cropped_combiner_output_nxy = cropped_combiner_output_nxy
-        
-    return loss
+    
+    # total loss = reconstruction loss + regularization loss
+    total_loss = rec_loss
+    if enable_continuity_reg and reg_loss is not None:
+        total_loss += reg_loss
+
+    return total_loss, rec_loss
 
 
 def generate_input_for_denoising(
-        i_dataset: int,
-        i_t: int,
-        n_samp: int,
         ws_base_list: List[OptopatchBaseWorkspace],
         ws_denoising_list: List[OptopatchDenoisingWorkspace],
+        i_dataset: int,
+        i_t: int,
         t_order: int,
-        movie_width: int,
-        movie_height: int,
-        padded_width: int,
-        padded_height: int,
-        occlusion_prob: float,
-        include_mask: bool = False,
+        n_batch: int = 1,
         device: torch.device = torch.device('cuda'),
         dtype: torch.dtype = torch.float32):
     """Prepares data for single-dataset single-frame denoising"""
     
-    n_global_features = ws_denoising_list[0].features_1fxy.shape[-3]
+    movie_width, movie_height = (
+        ws_base_list[0].width,
+        ws_base_list[0].height)
+    
+    padded_width, padded_height = (
+        ws_denoising_list[0].padded_width,
+        ws_denoising_list[0].padded_height)
+    
+    n_global_features = ws_denoising_list[0].n_global_features
     global_features_f_begin_index = 0
     global_features_f_end_index = n_global_features
-    n_batch = n_samp
-    
-    if include_mask:
-        n_input_features_per_frame = n_global_features + 2
-        mask_f_index = n_global_features 
-        movie_f_index = n_global_features + 1
-    else:
-        n_input_features_per_frame = n_global_features + 1
-        movie_f_index = n_global_features 
+    movie_f_index = n_global_features
+    n_input_features_per_frame = n_global_features + 1
 
     # generate occlusion masks (1 means occlud)
-    occlusion_masks_nxy = generate_bernoulli_mask(
-        p=occlusion_prob,
-        n_batch=n_batch,
-        width=movie_width,
-        height=movie_height,
-        device=device,
-        dtype=dtype)
+    occlusion_masks_nxy = torch.zeros(
+        n_batch, movie_width, movie_height,
+        device=device, dtype=dtype)
 
     # slice the movies and copy to device
     t_mid = (t_order - 1) // 2
@@ -567,7 +611,7 @@ def generate_input_for_denoising(
             (occlusion_masks_nxy.shape[0], 1), device=device, dtype=dtype))
     
     # occlude the movie with mask
-    padded_sliced_movie_ntxy[:, t_mid, :, :] = padded_sliced_movie_ntxy[:, t_mid, :, :] * (
+    padded_sliced_movie_ntxy[:, t_mid, :, :] *= (
         1. - padded_occlusion_masks_n1xy[:, 0, ...])
 
     # replace masked pixels by spatio-temporal kNN average
@@ -587,29 +631,29 @@ def generate_input_for_denoising(
                            device=device, dtype=dtype).unsqueeze(0)
               for i_batch in range(n_batch)), dim=0).expand(
         n_batch, t_order, n_global_features, padded_width, padded_height)
-
-    if include_mask:
-        # copy mask
-        feature_enriched_occluded_input_ntfxy[
-            :, t_mid, mask_f_index:(mask_f_index + 1), :, :] = padded_occlusion_masks_n1xy
-
+    
     # copy occluded movie
     feature_enriched_occluded_input_ntfxy[
-        :, :, movie_f_index:(movie_f_index + 1), :, :] = padded_sliced_movie_ntxy.view(
-        n_batch, t_order, 1, padded_width, padded_height)
+        :, :, movie_f_index, :, :] = padded_sliced_movie_ntxy
     
     return {
-        'feature_enriched_occluded_input_ntfxy': feature_enriched_occluded_input_ntfxy}
+        'feature_enriched_occluded_input_ntfxy': feature_enriched_occluded_input_ntfxy,
+        'global_features_f_begin_index': global_features_f_begin_index,
+        'global_features_f_end_index': global_features_f_end_index,
+        'movie_f_index': movie_f_index
+    }
 
 
 def denoise(denoising_input_data,
+            ws_base_list: List[OptopatchBaseWorkspace],
             ws_denoising_list: List[OptopatchDenoisingWorkspace],
             per_frame_feature_extractor: torch.nn.Module,
-            temporal_combiner: torch.nn.Module,
-            pass_global_features_to_combiner: bool,
-            movie_width: int,
-            movie_height: int):
+            temporal_combiner: torch.nn.Module):
     """Denoises a single frame from a single dataset"""
+    
+    movie_width, movie_height = (
+        ws_base_list[0].width,
+        ws_base_list[0].height)
     
     # set to evaluation mode
     per_frame_feature_extractor.eval()
@@ -627,33 +671,31 @@ def denoise(denoising_input_data,
         frame_features_mlxy = per_frame_feature_extractor(flat_input_features_mfxy)
 
         # generate input for the combiner
-        n_global_features = ws_denoising_list[0].features_1fxy.shape[-3]
-        global_features_f_begin_index = 0
-        global_features_f_end_index = n_global_features
-        global_features_nfxy = crop_center(
-            input_ntfxy[:, 0, global_features_f_begin_index:global_features_f_end_index, ...],
+        constant_features_nfxy = crop_center(
+            input_ntfxy[:, 0, :denoising_input_data['movie_f_index'], ...],
             target_width=frame_features_mlxy.shape[-2],
             target_height=frame_features_mlxy.shape[-1])
-
+    
+        # let's be conservative for now and only allow t_stride == 1
+        # todo: talk to Luca
         t_stride = per_frame_feature_extractor.out_channels
-        assert t_stride == 1 # let's be conservative for now -- talk to Luca
+        assert t_stride == 1
+        
         frame_features_nqxy = frame_features_mlxy.view(
             (n_batch,
              t_order * t_stride,
              frame_features_mlxy.shape[-2],
              frame_features_mlxy.shape[-1]))
 
-        if pass_global_features_to_combiner:
-            combiner_input_ncxy = torch.cat(
-                (frame_features_nqxy, global_features_nfxy), dim=-3)
-        else:
-            combiner_input_ncxy = frame_features_nqxy
+        combiner_input_ncxy = torch.cat(
+            (constant_features_nfxy,
+             frame_features_nqxy),
+            dim=-3)
         
         # combine
-        combiner_output_nxy = temporal_combiner(combiner_input_ncxy)[:, 0, ...]
-
-        return crop_center(
-            combiner_output_nxy,
+        cropped_combiner_output_nxy = crop_center(
+            temporal_combiner(combiner_input_ncxy)[:, 0, ...],
             target_width=movie_width,
-            target_height=movie_height).mean(0)
-    
+            target_height=movie_height)
+
+        return cropped_combiner_output_nxy.mean(0)
