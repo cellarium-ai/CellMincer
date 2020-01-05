@@ -5,7 +5,7 @@ import torch
 import logging
 from typing import List, Tuple, Optional
 
-from .opto_utils import get_cosine_similarity_with_sequence_np, pad_images_np
+from .opto_utils import get_cosine_similarity_with_sequence_np
 
 logger = logging.getLogger()
 
@@ -23,7 +23,8 @@ class OptopatchBaseWorkspace:
                  opto_mov_path: str,
                  logger: logging.Logger,
                  dtype = np.float32,
-                 neighbor_dx_dy_list: List[Tuple[int, int]] = DEFAULT_NEIGHBOR_DX_DY_LIST):
+                 neighbor_dx_dy_list: List[Tuple[int, int]] = DEFAULT_NEIGHBOR_DX_DY_LIST,
+                 transpose: bool = True):
         
         self.opto_mov_path = opto_mov_path
         self.logger = logger
@@ -32,7 +33,9 @@ class OptopatchBaseWorkspace:
         
         # load the movie
         self.info(f"Loading movie from {opto_mov_path} ...")
-        self.movie_txy = np.load(opto_mov_path).transpose(-3, -1, -2)
+        self.movie_txy = np.load(opto_mov_path)
+        if transpose:
+            self.movie_txy = self.movie_txy.transpose(-3, -1, -2)
 
     def info(self, msg: str):
         self.logger.warning(msg)
@@ -137,70 +140,94 @@ class OptopatchDenoisingWorkspace:
     """A workspace containing arrays prepared for denoising (e.g. normalized, padded)"""
     def __init__(self,
                  ws_base: OptopatchBaseWorkspace,
-                 target_width: int,
-                 target_height: int,
+                 x_padding: int,
+                 y_padding: int,
                  dtype=np.float32):
         self.ws_base = ws_base
-        self.target_width = target_width
-        self.target_height = target_height
+        self.x_padding = x_padding
+        self.y_padding = y_padding
+        self.padded_width = ws_base.width + 2 * x_padding
+        self.padded_height = ws_base.height + 2 * y_padding
         self.dtype = dtype
-        self.padded_width = target_width
-        self.padded_height = target_height
         
         # estimate fg scale for normalization
         fg_scale = ws_base.movie_t_std_xy[ws_base.cosine_fg_sim_otsu_fg_pixel_mask_xy].mean()
         self.fg_scale = fg_scale
         
         # pad the scaled movie
-        self.padded_movie_1txy = pad_images_np(
-            images_ncxy=ws_base.movie_txy[None, ...] / fg_scale,
-            target_width=target_width,
-            target_height=target_height).astype(dtype)
+        self.padded_movie_1txy = np.pad(
+            array=ws_base.movie_txy / fg_scale,
+            pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
+            mode='reflect')[None, ...].astype(dtype)
 
         # generate global features
         features = []
         feature_names = []
         
-        # std
-        padded_movie_std_11xy_scaled = pad_images_np(
-            images_ncxy=ws_base.movie_t_std_xy[None, None, :, :] / fg_scale,
-            target_width=target_width,
-            target_height=target_height)
+        # std        
+        padded_movie_std_11xy_scaled = np.pad(
+            array=ws_base.movie_t_std_xy / fg_scale,
+            pad_width=((x_padding, x_padding), (y_padding, y_padding)),
+            mode='reflect')[None, None, ...]
         features.append(padded_movie_std_11xy_scaled)
         feature_names.append('std')
 
         # mean
-        padded_movie_mean_11xy_scaled = pad_images_np(
-            images_ncxy=ws_base.movie_t_mean_xy[None, None, :, :] / fg_scale,
-            target_width=target_width,
-            target_height=target_height)
+        padded_movie_mean_11xy_scaled = np.pad(
+            array=ws_base.movie_t_mean_xy / fg_scale,
+            pad_width=((x_padding, x_padding), (y_padding, y_padding)),
+            mode='reflect')[None, None, ...]
         features.append(padded_movie_mean_11xy_scaled)
         feature_names.append('mean')
 
         # fg cosine sim
-        padded_movie_cosine_fg_sim_11xy_scaled = pad_images_np(
-            images_ncxy=ws_base.movie_cosine_fg_sim_xy[None, None, :, :],
-            target_width=target_width,
-            target_height=target_height)
-        features.append(padded_movie_cosine_fg_sim_11xy_scaled)
+        padded_movie_cosine_fg_sim_11xy = np.pad(
+            array=ws_base.movie_cosine_fg_sim_xy,
+            pad_width=((x_padding, x_padding), (y_padding, y_padding)),
+            mode='reflect')[None, None, ...]
+        features.append(padded_movie_cosine_fg_sim_11xy)
         feature_names.append('cosine_fg_sim')
         
         # kNN temporal correlations
         for (dx, dy), t_corr_xy in zip(
                 ws_base.neighbor_dx_dy_list, ws_base.movie_t_corr_xy_list):
-            padded_t_corr_11xy_scaled = pad_images_np(
-                images_ncxy=t_corr_xy[None, None, :, :],
-                target_width=target_width,
-                target_height=target_height)
-            features.append(padded_t_corr_11xy_scaled)
+            padded_t_corr_11xy = np.pad(
+                array=t_corr_xy,
+                pad_width=((x_padding, x_padding), (y_padding, y_padding)),
+                mode='reflect')[None, None, ...]
+            features.append(padded_t_corr_11xy)
             feature_names.append(f't_corr_({dx}, {dy})')
         
         # concatenate gobal features
         self.features_1fxy = np.concatenate(features, -3).astype(dtype)
         self.feature_names = feature_names
         
-    def get_slice(self, begin_t_index: int, end_t_index: int) -> np.ndarray:
-        return self.padded_movie_1txy[:, begin_t_index:end_t_index, ...]
+    def get_slice(self,
+                  t_begin_index: int,
+                  t_end_index: int,
+                  x0: int,
+                  y0: int,
+                  x_window: int,
+                  y_window: int) -> Tuple[np.ndarray, np.ndarray]:
+        assert self.ws_base.width - x_window >= 0
+        assert self.ws_base.height - y_window >= 0
+        assert 0 <= x0 <= self.ws_base.width - x_window
+        assert 0 <= y0 <= self.ws_base.height - y_window
+        assert 0 <= t_begin_index <= self.ws_base.n_frames
+        assert 0 <= t_end_index <= self.ws_base.n_frames
+        assert t_end_index > t_begin_index
+        
+        movie_slice_1txy = self.padded_movie_1txy[:, t_begin_index:t_end_index, ...][
+            ...,
+            x0:(x0 + x_window + 2 * self.x_padding),
+            y0:(y0 + y_window + 2 * self.y_padding)]
+        
+        feature_slice_1fxy = self.features_1fxy[
+            ...,
+            x0:(x0 + x_window + 2 * self.x_padding),
+            y0:(y0 + y_window + 2 * self.y_padding)]
+        
+        return movie_slice_1txy, feature_slice_1fxy
 
     @property
     def n_global_features(self):
