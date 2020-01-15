@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from typing import Optional
+from typing import Optional, Union
 
 
 def get_cosine_similarity_with_sequence_np(
@@ -78,9 +78,9 @@ def pad_images_torch(images_ncxy: torch.Tensor,
     return output
 
 
-def crop_center(input_ncxy: torch.Tensor,
+def crop_center(input_ncxy: Union[torch.Tensor, np.ndarray],
                 target_width: int,
-                target_height: int) -> torch.Tensor:
+                target_height: int) -> Union[torch.Tensor, np.ndarray]:
     input_width = input_ncxy.shape[-2]
     input_height = input_ncxy.shape[-1]
     margin_width = (input_width - target_width) // 2
@@ -120,3 +120,14 @@ def get_nn_spatio_temporal_mean(movie_ntxy: torch.Tensor, i_t: int) -> torch.Ten
             + movie_ntxy[..., i_t + 1, 2:, 1:-1]
             + movie_ntxy[..., i_t + 1, 2:, 2:])
 
+
+def get_nn_spatial_mean(movie_ntxy: torch.Tensor, i_t: int) -> torch.Tensor:
+    return 0.125 * (
+        movie_ntxy[..., i_t, 0:-2, 0:-2]
+            + movie_ntxy[..., i_t, 0:-2, 1:-1]
+            + movie_ntxy[..., i_t, 0:-2, 2:]
+            + movie_ntxy[..., i_t, 1:-1, 0:-2]
+            + movie_ntxy[..., i_t, 1:-1, 2:]
+            + movie_ntxy[..., i_t, 2:, 0:-2]
+            + movie_ntxy[..., i_t, 2:, 1:-1]
+            + movie_ntxy[..., i_t, 2:, 2:])

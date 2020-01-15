@@ -33,17 +33,26 @@ class UNetConvBlock(torch.nn.Module):
 
 
 class UNetUpBlock(torch.nn.Module):
-    def __init__(self, in_size, out_size, up_mode, padding, batch_norm, unet_kernel_size, activation):
+    def __init__(self,
+                 in_size: int,
+                 mid_size: int,
+                 bridge_size: int,
+                 out_size: int,
+                 up_mode: 'str',
+                 padding: int,
+                 batch_norm: bool,
+                 unet_kernel_size: int,
+                 activation: torch.nn.Module):
         super(UNetUpBlock, self).__init__()
         if up_mode == 'upconv':
-            self.up = torch.nn.ConvTranspose2d(in_size, out_size, kernel_size=2, stride=2)
+            self.up = torch.nn.ConvTranspose2d(in_size, mid_size, kernel_size=2, stride=2)
         elif up_mode == 'upsample':
             self.up = torch.nn.Sequential(
                 torch.nn.Upsample(mode='bilinear', scale_factor=2),
-                torch.nn.Conv2d(in_size, out_size, kernel_size=1),
-            )
-
-        self.conv_block = UNetConvBlock(in_size, out_size, padding, batch_norm, unet_kernel_size, activation)
+                torch.nn.Conv2d(in_size, mid_size, kernel_size=1))
+        
+        self.conv_block = UNetConvBlock(
+            mid_size + bridge_size, out_size, padding, batch_norm, unet_kernel_size, activation)
 
     def center_crop(self, layer, target_size):
         _, _, layer_height, layer_width = layer.size()
@@ -59,7 +68,6 @@ class UNetUpBlock(torch.nn.Module):
         crop1 = self.center_crop(bridge, up.shape[2:])
         out = torch.cat([up, crop1], 1)  # cat along channels
         out = self.conv_block(out)
-
         return out
 
     
@@ -70,8 +78,10 @@ class UNet(torch.nn.Module):
             out_channels: int,
             depth: int,
             wf: int,
+            out_channels_before_readout: int,
             padding: bool = False,
             batch_norm: bool = False,
+            skip_readout: bool = False,
             up_mode: str = 'upconv',
             unet_kernel_size: int = 3,
             readout_hidden_layer_channels_list: List[int] = [],
@@ -131,33 +141,48 @@ class UNet(torch.nn.Module):
         # upward path
         self.up_path = torch.nn.ModuleList()
         for i in reversed(range(depth - 1)):
+            if i > 0:
+                up_in_channels = prev_channels
+                up_bridge_channels = 2 ** (wf + i)
+                up_mid_channels = 2 ** (wf + i)
+                up_out_channels = 2 ** (wf + i)
+            else:
+                up_in_channels = prev_channels
+                up_bridge_channels = 2 ** (wf + i)
+                up_mid_channels = 2 ** (wf + i)
+                up_out_channels = out_channels_before_readout
             self.up_path.append(
                 UNetUpBlock(
-                    prev_channels,
-                    2 ** (wf + i),
+                    up_in_channels,
+                    up_mid_channels,
+                    up_bridge_channels,
+                    up_out_channels,
                     up_mode,
                     padding,
                     batch_norm,
                     unet_kernel_size,
                     activation))
-            prev_channels = 2 ** (wf + i)
+            prev_channels = up_out_channels
 
         # final readout
-        readout = []
-        for hidden_channels in readout_hidden_layer_channels_list:
+        if not skip_readout:
+            readout = []
+            for hidden_channels in readout_hidden_layer_channels_list:
+                readout.append(
+                    torch.nn.Conv2d(
+                        prev_channels,
+                        hidden_channels,
+                        kernel_size=readout_kernel_size))
+                readout.append(activation)
+                prev_channels = hidden_channels
             readout.append(
                 torch.nn.Conv2d(
                     prev_channels,
-                    hidden_channels,
+                    out_channels,
                     kernel_size=readout_kernel_size))
-            readout.append(activation)
-            prev_channels = hidden_channels
-        readout.append(
-            torch.nn.Conv2d(
-                prev_channels,
-                out_channels,
-                kernel_size=readout_kernel_size))
-        self.readout = torch.nn.Sequential(*readout)
+            self.readout = torch.nn.Sequential(*readout)
+        else:
+            self.readout = None
         
         # send to device
         self.to(device)
@@ -172,8 +197,11 @@ class UNet(torch.nn.Module):
 
         for i, up in enumerate(self.up_path):
             x = up(x, blocks[-i - 1])
-
-        return self.readout(x)
+            
+        if self.readout is not None:
+            return self.readout(x)
+        else:
+            return x
     
 
 def get_unet_input_size(output_min_size: int, kernel_size: int, depth: int):
