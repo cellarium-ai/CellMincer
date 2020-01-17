@@ -2,11 +2,10 @@ import numpy as np
 import torch
 import logging
 import pickle
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 from skimage.filters import threshold_otsu
 
-from cellmincer.opto_ws import OptopatchBaseWorkspace
 from cellmincer.opto_utils import crop_center
 
 
@@ -28,6 +27,14 @@ class PaddedMovieTorch:
     
     def std_xy(self):
         return self.padded_movie_txy.std(0)
+
+
+@dataclass
+class OptopatchGlobalFeatureContainer:
+    norm_scale: float = 1.0
+    feature_name_list: List[str] = field(default_factory=list)
+    feature_depth_list: List[int] = field(default_factory=list)
+    feature_array_list: List[np.ndarray] = field(default_factory=list)
 
 
 def unpad_frame(frame_xy: torch.Tensor, padded_movie: PaddedMovieTorch) -> torch.Tensor:
@@ -259,18 +266,11 @@ def get_continuous_1d_mask(mask_t: np.ndarray) -> np.ndarray:
             new_mask_t[1:] = new_mask_t[1:] | new_mask_t[:-1]
     return new_mask_t
 
-
-@dataclass
-class OptopatchGlobalFeatureContainer:
-    feature_name_list: List[str]
-    feature_depth_list: List[int]
-    feature_array_list: List[np.ndarray]
-
     
 class OptopatchGlobalFeatureExtractor:
     def __init__(
             self,
-            ws_base: OptopatchBaseWorkspace,
+            ws_base: 'OptopatchBaseWorkspace',
             logger: logging.Logger,
             select_active_t_range: bool = True,
             max_depth: int = 3,
@@ -297,7 +297,7 @@ class OptopatchGlobalFeatureExtractor:
         # containers
         self.active_mask_t = self.determine_active_t_range(
             ws_base, select_active_t_range)
-        self.features = OptopatchGlobalFeatureContainer([], [], []) 
+        self.features = OptopatchGlobalFeatureContainer()
         
         # populate features
         self._populate_features()
@@ -307,7 +307,7 @@ class OptopatchGlobalFeatureExtractor:
         
     @staticmethod
     def determine_active_t_range(
-            ws_base: OptopatchBaseWorkspace,
+            ws_base: 'OptopatchBaseWorkspace',
             select_active_t_range: bool):
         std_t = np.std(ws_base.movie_txy, axis=(-1, -2))
         if select_active_t_range:
@@ -346,6 +346,9 @@ class OptopatchGlobalFeatureExtractor:
             device=self.device,
             dtype=self.dtype)
 
+        # normalization scale
+        self.features.norm_scale = input_movie_std_scale
+        
         # neighbors to consider in calculating cross-correlations
         corr_displacement_list = []
         for dt in [0, 1]:

@@ -6,6 +6,7 @@ import logging
 from typing import List, Tuple, Optional
 
 from .opto_utils import get_cosine_similarity_with_sequence_np
+from .opto_features import OptopatchGlobalFeatureContainer
 
 logger = logging.getLogger()
 
@@ -136,79 +137,75 @@ class OptopatchBaseWorkspace:
         return self.cosine_fg_sim_otsu_fg_pixel_mask_xy.sum().item() / self.n_pixels
 
 
+class OptopatchGlobalFeaturesTorchCache:
+    def __init__(
+            self,
+            features: OptopatchGlobalFeatureContainer,
+            x_padding: int,
+            y_padding: int,
+            device: torch.device,
+            dtype: torch.dtype):
+        self.x_padding = x_padding
+        self.y_padding = y_padding
+        self.device = device
+        self.dtype = dtype
+        
+        self.features_1fxy = torch.tensor(
+            np.concatenate([
+                np.pad(
+                    array=feature_array_xy,
+                    pad_width=((x_padding, x_padding), (y_padding, y_padding)),
+                    mode='reflect')[None, None, ...]
+                for feature_array_xy in features.feature_array_list],
+                axis=-3),
+            device=device,
+            dtype=dtype)
+        
+        self.norm_scale = features.norm_scale
+        self.feature_name_list = features.feature_name_list
+        self.feature_depth_list = features.feature_depth_list
+
+        
 class OptopatchDenoisingWorkspace:
     """A workspace containing arrays prepared for denoising (e.g. normalized, padded)"""
     def __init__(self,
                  ws_base: OptopatchBaseWorkspace,
+                 features: OptopatchGlobalFeatureContainer,
                  x_padding: int,
                  y_padding: int,
-                 dtype=np.float32):
+                 device: torch.device,
+                 dtype: torch.dtype):
         self.ws_base = ws_base
         self.x_padding = x_padding
         self.y_padding = y_padding
         self.padded_width = ws_base.width + 2 * x_padding
         self.padded_height = ws_base.height + 2 * y_padding
+        
+        self.device = device
         self.dtype = dtype
-        
-        # estimate fg scale for normalization
-        fg_scale = ws_base.movie_t_std_xy[ws_base.cosine_fg_sim_otsu_fg_pixel_mask_xy].mean()
-        self.fg_scale = fg_scale
-        
+
         # pad the scaled movie
         self.padded_movie_1txy = np.pad(
-            array=ws_base.movie_txy / fg_scale,
+            array=ws_base.movie_txy / features.norm_scale,
             pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-            mode='reflect')[None, ...].astype(dtype)
-
-        # generate global features
-        features = []
-        feature_names = []
+            mode='reflect')[None, ...]
         
-        # std        
-        padded_movie_std_11xy_scaled = np.pad(
-            array=ws_base.movie_t_std_xy / fg_scale,
-            pad_width=((x_padding, x_padding), (y_padding, y_padding)),
-            mode='reflect')[None, None, ...]
-        features.append(padded_movie_std_11xy_scaled)
-        feature_names.append('std')
-
-        # mean
-        padded_movie_mean_11xy_scaled = np.pad(
-            array=ws_base.movie_t_mean_xy / fg_scale,
-            pad_width=((x_padding, x_padding), (y_padding, y_padding)),
-            mode='reflect')[None, None, ...]
-        features.append(padded_movie_mean_11xy_scaled)
-        feature_names.append('mean')
-
-        # fg cosine sim
-        padded_movie_cosine_fg_sim_11xy = np.pad(
-            array=ws_base.movie_cosine_fg_sim_xy,
-            pad_width=((x_padding, x_padding), (y_padding, y_padding)),
-            mode='reflect')[None, None, ...]
-        features.append(padded_movie_cosine_fg_sim_11xy)
-        feature_names.append('cosine_fg_sim')
+        # pad and cache the features
+        self.cached_features = OptopatchGlobalFeaturesTorchCache(
+            features=features,
+            x_padding=x_padding,
+            y_padding=y_padding,
+            device=device,
+            dtype=dtype)
         
-        # kNN temporal correlations
-        for (dx, dy), t_corr_xy in zip(
-                ws_base.neighbor_dx_dy_list, ws_base.movie_t_corr_xy_list):
-            padded_t_corr_11xy = np.pad(
-                array=t_corr_xy,
-                pad_width=((x_padding, x_padding), (y_padding, y_padding)),
-                mode='reflect')[None, None, ...]
-            features.append(padded_t_corr_11xy)
-            feature_names.append(f't_corr_({dx}, {dy})')
-        
-        # concatenate gobal features
-        self.features_1fxy = np.concatenate(features, -3).astype(dtype)
-        self.feature_names = feature_names
-        
-    def get_slice(self,
-                  t_begin_index: int,
-                  t_end_index: int,
-                  x0: int,
-                  y0: int,
-                  x_window: int,
-                  y_window: int) -> Tuple[np.ndarray, np.ndarray]:
+    def get_movie_slice(
+            self,
+            t_begin_index: int,
+            t_end_index: int,
+            x0: int,
+            y0: int,
+            x_window: int,
+            y_window: int) -> torch.Tensor:
         assert self.ws_base.width - x_window >= 0
         assert self.ws_base.height - y_window >= 0
         assert 0 <= x0 <= self.ws_base.width - x_window
@@ -222,13 +219,26 @@ class OptopatchDenoisingWorkspace:
             x0:(x0 + x_window + 2 * self.x_padding),
             y0:(y0 + y_window + 2 * self.y_padding)]
         
-        feature_slice_1fxy = self.features_1fxy[
-            ...,
+        return torch.tensor(movie_slice_1txy, device=self.device, dtype=self.dtype)
+    
+    def get_feature_slice(
+            self,
+            x0: int,
+            y0: int,
+            x_window: int,
+            y_window: int) -> torch.Tensor:
+        assert self.ws_base.width - x_window >= 0
+        assert self.ws_base.height - y_window >= 0
+        assert 0 <= x0 <= self.ws_base.width - x_window
+        assert 0 <= y0 <= self.ws_base.height - y_window
+        
+        feature_slice_1fxy = self.cached_features.features_1fxy[
+            :, :,
             x0:(x0 + x_window + 2 * self.x_padding),
             y0:(y0 + y_window + 2 * self.y_padding)]
         
-        return movie_slice_1txy, feature_slice_1fxy
+        return feature_slice_1fxy
 
     @property
     def n_global_features(self):
-        return self.features_1fxy.shape[-3]
+        return self.cached_features.features_1fxy.shape[-3]

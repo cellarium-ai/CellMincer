@@ -204,7 +204,11 @@ class UNet(torch.nn.Module):
             return x
     
 
-def get_unet_input_size(output_min_size: int, kernel_size: int, depth: int):
+def get_unet_input_size(
+    output_min_size: int,
+    kernel_size: int,
+    n_conv_layers: int,
+    depth: int):
     """Smallest input size for output size >= `output_min_size`.
     
     .. note:
@@ -212,7 +216,7 @@ def get_unet_input_size(output_min_size: int, kernel_size: int, depth: int):
         This is important to prevent aliasing in downsampling (pooling) operations.
     
     """
-    delta = 2 * (kernel_size - 1)
+    delta = n_conv_layers * (kernel_size - 1)
     pad = delta * sum([2 ** i for i in range(depth)])
     ds = 2 ** depth
     res = (output_min_size + pad) % ds
@@ -224,25 +228,42 @@ def get_unet_input_size(output_min_size: int, kernel_size: int, depth: int):
     return input_size
 
 
-def get_minimum_padding(
+def get_minimum_spatial_padding(
         x_window: int,
         y_window: int,
         denoiser_config: Dict[str, Union[int, float, str]]) -> Tuple[int, int]:
     
-    padded_x_window = get_unet_input_size(
-        output_min_size=(
-            x_window
-            + (denoiser_config['unet_readout_kernel_size'] - 1)
-                * len(denoiser_config['unet_readout_hidden_layer_channels_list']) + 1),
-        kernel_size=denoiser_config['unet_kernel_size'],
-        depth=denoiser_config['unet_depth'])
-    padded_y_window = get_unet_input_size(
-        output_min_size=(
-            y_window
-            + (denoiser_config['unet_readout_kernel_size'] - 1)
-                * len(denoiser_config['unet_readout_hidden_layer_channels_list']) + 1),
-        kernel_size=denoiser_config['unet_kernel_size'],
-        depth=denoiser_config['unet_depth'])
+    if not denoiser_config['spatial_unet_padding']:
+        
+        padded_x_window = get_unet_input_size(
+            output_min_size=(
+                x_window
+                + (denoiser_config['spatial_unet_readout_kernel_size'] - 1)
+                    * len(denoiser_config['spatial_unet_readout_hidden_layer_channels_list']) + 1),
+            kernel_size=denoiser_config['spatial_unet_kernel_size'],
+            n_conv_layers=denoiser_config['spatial_unet_n_conv_layers'],
+            depth=denoiser_config['spatial_unet_depth'])
+        padded_y_window = get_unet_input_size(
+            output_min_size=(
+                y_window
+                + (denoiser_config['spatial_unet_readout_kernel_size'] - 1)
+                    * len(denoiser_config['spatial_unet_readout_hidden_layer_channels_list']) + 1),
+            kernel_size=denoiser_config['spatial_unet_kernel_size'],
+            n_conv_layers=denoiser_config['spatial_unet_n_conv_layers'],
+            depth=denoiser_config['spatial_unet_depth'])
+    
+    else:
+        
+        padded_x_window = get_unet_input_size(
+            output_min_size=x_window,
+            kernel_size=1,
+            n_conv_layers=denoiser_config['spatial_unet_n_conv_layers'],
+            depth=denoiser_config['spatial_unet_depth'])
+        padded_y_window = get_unet_input_size(
+            output_min_size=y_window,
+            kernel_size=1,
+            n_conv_layers=denoiser_config['spatial_unet_n_conv_layers'],
+            depth=denoiser_config['spatial_unet_depth'])
 
     x_padding = (padded_x_window - x_window) // 2
     y_padding = (padded_y_window - y_window) // 2
