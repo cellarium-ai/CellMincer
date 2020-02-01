@@ -65,6 +65,8 @@ def pad_images_torch(images_ncxy: torch.Tensor,
     assert target_height >= source_height
     assert (target_width - source_width) % 2 == 0
     assert (target_height - source_height) % 2 == 0
+    if (source_width == target_width) and (source_height == target_height):
+        return images_ncxy
     
     margin_width = (target_width - source_width) // 2
     margin_height = (target_height - source_height) // 2
@@ -83,11 +85,16 @@ def crop_center(input_ncxy: Union[torch.Tensor, np.ndarray],
                 target_height: int) -> Union[torch.Tensor, np.ndarray]:
     input_width = input_ncxy.shape[-2]
     input_height = input_ncxy.shape[-1]
+    assert input_width >= target_width
+    assert input_height >= target_height
     margin_width = (input_width - target_width) // 2
     margin_height = (input_height - target_height) // 2
-    return input_ncxy[...,
-           margin_width:(target_width + margin_width),
-           margin_height:(target_height + margin_height)]
+    if (margin_width == 0) and (margin_height == 0):
+        return input_ncxy
+    else:
+        return input_ncxy[...,
+               margin_width:(target_width + margin_width),
+               margin_height:(target_height + margin_height)]
 
 
 def get_nn_spatio_temporal_mean(movie_ntxy: torch.Tensor, i_t: int) -> torch.Tensor:

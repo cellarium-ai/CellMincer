@@ -309,10 +309,10 @@ class OptopatchGlobalFeatureExtractor:
     def determine_active_t_range(
             ws_base: 'OptopatchBaseWorkspace',
             select_active_t_range: bool):
-        std_t = np.std(ws_base.movie_txy, axis=(-1, -2))
+        m_t = np.mean(ws_base.movie_txy, axis=(-1, -2))
         if select_active_t_range:
-            threshold = threshold_otsu(std_t)
-            active_mask_t = get_continuous_1d_mask(std_t > threshold)
+            threshold = 0.5 * threshold_otsu(m_t)
+            active_mask_t = get_continuous_1d_mask(m_t > threshold)
         else:
             active_mask_t = np.ones((ws_base.n_frames,), dtype=np.bool)
         return active_mask_t
@@ -426,6 +426,7 @@ class OptopatchGlobalFeatureExtractor:
                     trend_movie=current_trend_movie,
                     dt=dt, dx=dx, dy=dy,
                     normalize=False)
+                # normed_current_cross_corr_xy = current_cross_corr_xy
                 normed_current_cross_corr_xy = current_cross_corr_xy / (self.eps + current_detrended_var_xy)
 
                 self.features.feature_array_list.append(crop_center(
@@ -441,6 +442,7 @@ class OptopatchGlobalFeatureExtractor:
                     trend_movie=None,
                     dt=dt, dx=dx, dy=dy,
                     normalize=False)
+                # normed_current_cross_corr_xy = current_cross_corr_xy
                 normed_current_cross_corr_xy = current_cross_corr_xy / (self.eps + current_trend_var_xy)
 
                 self.features.feature_array_list.append(crop_center(
