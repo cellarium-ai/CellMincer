@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from typing import Optional, Union
+from typing import Optional, Union, List, Tuple
+from bisect import bisect_left, bisect_right
 
 
 def get_cosine_similarity_with_sequence_np(
@@ -138,3 +139,107 @@ def get_nn_spatial_mean(movie_ntxy: torch.Tensor, i_t: int) -> torch.Tensor:
             + movie_ntxy[..., i_t, 2:, 0:-2]
             + movie_ntxy[..., i_t, 2:, 1:-1]
             + movie_ntxy[..., i_t, 2:, 2:])
+
+
+def _get_overlapping_index_range(x_list: List[float], pos: float, radius: float) -> Tuple[int, int]:
+    i_left = bisect_left(x_list, pos - radius)
+    i_right = bisect_right(x_list, pos + radius)
+    return i_left, i_right
+
+
+def _first_leq_np(arr: np.ndarray, axis: int, value: float, invalid_val=-1):
+    mask = arr <= value
+    return np.where(mask.any(axis=axis), mask.argmax(axis=axis), invalid_val)
+
+
+def _first_leq_torch(data: torch.Tensor, dim: int, value: float):
+    mask = data <= value
+    return ((mask.cumsum(dim) == 1) & mask).max(dim).indices
+
+
+def rolling_circle_filter_np(
+        x: np.ndarray,
+        y: np.ndarray,
+        radius_x: float,
+        radius_y: float,
+        eps: float = 1e-6):
+    """Rolling circle filter.
+    
+    Args:
+        x: (N,) ndarray
+        y: (..., N) ndarray
+    """
+    assert x.shape[-1] == y.shape[-1]
+    assert y.ndim >= 1
+    assert x.ndim == 1
+
+    n_points = x.size
+    batch_shape = y.shape[:-1]
+    y = y.reshape(-1, n_points)
+    x_list = x.tolist()
+    inv_radius_x2 = 1. / (radius_x ** 2)
+    inv_radius_y2 = 1. / (radius_y ** 2)
+    batch_ravel = list(range(y.shape[0]))
+    y_bg = np.zeros_like(y)
+    for i_x in range(len(x_list)):
+        pos = x_list[i_x]
+        i_left, i_right = _get_overlapping_index_range(x_list, pos, radius_x)
+        x_slice = x[i_left:i_right]
+        y_slice = y[:, i_left:i_right]
+        y_center = y_slice - radius_y * np.sqrt(
+            np.maximum(0, 1. - inv_radius_x2 * (x_slice - pos) ** 2))
+        dist_mat = (
+            inv_radius_y2 * (y_center[:, :, None] - y_slice[:, None, :]) ** 2 +
+            inv_radius_x2 * (pos - x_slice[None, None, :]) ** 2)
+        inside_count = np.sum(dist_mat < 1. - eps, axis=-1)
+        under_count = np.sum((y_center[:, :, None] - radius_y) > y_slice[:, None, :], axis=-1) 
+        indices = _first_leq_np(arr=inside_count + under_count, axis=-1, value=0)
+        y_bg[:, i_x] = y_center[batch_ravel, indices] + radius_y
+    
+    return y_bg.reshape(batch_shape + (n_points,))
+
+
+def rolling_circle_filter_torch(
+        x: torch.Tensor,
+        y: torch.Tensor,
+        radius_x: float,
+        radius_y: float,
+        eps: float = 1e-6,
+        log_progress: bool = False,
+        log_every: int = 100):
+    """Rolling circle filter.
+    
+    Args:
+        x: (N,) ndarray
+        y: (..., N) ndarray
+    """
+    assert x.shape[-1] == y.shape[-1]
+    assert y.ndim >= 1
+    assert x.ndim == 1
+
+    n_points = x.numel()
+    batch_shape = y.shape[:-1]
+    y = y.view(-1, n_points)
+    x_list = x.tolist()
+    inv_radius_x2 = 1. / (radius_x ** 2)
+    inv_radius_y2 = 1. / (radius_y ** 2)
+    batch_ravel = list(range(y.shape[0]))
+    y_bg = torch.zeros_like(y)
+    for i_x in range(n_points):
+        if log_progress & (i_x % log_every == 0):
+            print(f"processing {i_x} / {n_points} ...")
+        pos = x_list[i_x]
+        i_left, i_right = _get_overlapping_index_range(x_list, pos, radius_x)
+        x_slice = x[i_left:i_right]
+        y_slice = y[:, i_left:i_right]
+        y_center = y_slice - radius_y * torch.sqrt(
+            torch.clamp(1. - inv_radius_x2 * (x_slice - pos).pow(2), min=0.))
+        dist_mat = (
+            inv_radius_y2 * (y_center[:, :, None] - y_slice[:, None, :]).pow(2) +
+            inv_radius_x2 * (pos - x_slice[None, None, :]).pow(2))
+        inside_count = torch.sum(dist_mat < 1. - eps, dim=-1)
+        under_count = torch.sum((y_center[:, :, None] - radius_y) > y_slice[:, None, :], dim=-1) 
+        indices = _first_leq_torch(data=inside_count + under_count, dim=-1, value=0)
+        y_bg[:, i_x] = y_center[batch_ravel, indices] + radius_y
+    
+    return y_bg.reshape(batch_shape + (n_points,))
