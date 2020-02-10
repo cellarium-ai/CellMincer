@@ -307,7 +307,7 @@ def get_noise2self_loss(
             batch_data['padded_global_features_nfxy'])
         for i_t in range(t_total)]
     unet_features_ncxy_list = [output['features_ncxy'] for output in unet_output_list]
-    unet_readout_n1xy_list = [output['readout_n1xy'] for output in unet_output_list]
+    unet_readout_n1xy_list = [output['readout_ncxy'] for output in unet_output_list]
     unet_features_nctxy = torch.cat([
         unet_features_ncxy[:, :, None, :, :]
         for unet_features_ncxy in unet_features_ncxy_list],
@@ -506,7 +506,7 @@ def denoise_single_frame(batch_data,
                 batch_data['padded_global_features_fxy'][None, :, :, :])
             for i_t in range(t_order)]
         unet_features_ncxy_list = [output['features_ncxy'] for output in unet_output_list]
-        unet_readout_n1xy_list = [output['readout_n1xy'] for output in unet_output_list]
+        unet_readout_n1xy_list = [output['readout_ncxy'] for output in unet_output_list]
         unet_features_width = unet_features_ncxy_list[0].shape[-2]
         unet_features_height = unet_features_ncxy_list[0].shape[-1]
         

@@ -301,7 +301,7 @@ class ConditionalUNet(torch.nn.Module):
             
         return {
             'features_ncxy': x,
-            'readout_n1xy': self.final_trans(self.readout(x))
+            'readout_ncxy': self.final_trans(self.readout(x))
         }
     
     def _forward_wo_features(self, x: torch.Tensor) \
@@ -319,7 +319,7 @@ class ConditionalUNet(torch.nn.Module):
             
         return {
             'features_ncxy': x,
-            'readout_n1xy': self.final_trans(self.readout(x))
+            'readout_ncxy': self.final_trans(self.readout(x))
         }
 
     
