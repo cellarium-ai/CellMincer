@@ -243,3 +243,43 @@ def rolling_circle_filter_torch(
         y_bg[:, i_x] = y_center[batch_ravel, indices] + radius_y
     
     return y_bg.reshape(batch_shape + (n_points,))
+
+
+def median_filter_torch(
+        movie_ntxy: np.ndarray,
+        detrending_order: int,
+        detrending_func: str,
+        device: torch.device,
+        dtype: torch.dtype) -> torch.Tensor:
+    assert detrending_order > 0
+    assert detrending_func in {'mean', 'median'}
+    
+    # reflection pad in time
+    padded_movie_ntxy = torch.tensor(
+        np.pad(
+            array=movie_ntxy,
+            pad_width=((0, 0), (detrending_order, detrending_order), (0, 0), (0, 0)),
+            mode='reflect'),
+        device=device,
+        dtype=dtype)
+    
+    detrended_movie_ntxy = torch.zeros(
+        movie_ntxy.shape,
+        device=device,
+        dtype=dtype)
+
+    # calculate temporal moving average
+    if detrending_func == 'mean':
+        for i_t in range(movie_ntxy.shape[-3]):
+            detrended_movie_ntxy[:, i_t, :, :] = padded_movie_ntxy[:, i_t + detrending_order, :, :] - torch.mean(
+                padded_movie_ntxy[:, i_t:(i_t + 2 * detrending_order + 1), :, :],
+                dim=-3)
+    elif detrending_func == 'median':
+        for i_t in range(movie_ntxy.shape[-3]):
+            detrended_movie_ntxy[:, i_t, :, :] = padded_movie_ntxy[:, i_t + detrending_order, :, :] - torch.median(
+                padded_movie_ntxy[:, i_t:(i_t + 2 * detrending_order + 1), :, :],
+                dim=-3)[0]
+    else:
+        raise ValueError()
+
+    return detrended_movie_ntxy
