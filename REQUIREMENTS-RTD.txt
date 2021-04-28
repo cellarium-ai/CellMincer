@@ -1,0 +1,13 @@
+matplotlib
+numpy
+scipy
+tifffile
+torch
+torchinfo
+boltons
+pyyaml
+scikit-image
+scikit-learn
+scikit-video
+neptune-client==0.9.16
+cosine_annealing_warmup @ https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/tarball/master#egg=cosine_annealing_warmup
