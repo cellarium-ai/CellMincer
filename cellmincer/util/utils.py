@@ -1,7 +1,13 @@
+import os
+
 import numpy as np
 import torch
 from typing import Optional, Union, List, Tuple
 from bisect import bisect_left, bisect_right
+
+from . import const
+
+import logging
 
 
 def get_cosine_similarity_with_sequence_np(
@@ -80,14 +86,16 @@ def pad_images_torch(images_ncxy: torch.Tensor,
            margin_height:(source_height + margin_height)] = images_ncxy
     return output
 
-
+'''
+Crops the last two dimensions to the specified center window.
+'''
 def crop_center(input_ncxy: Union[torch.Tensor, np.ndarray],
                 target_width: int,
                 target_height: int) -> Union[torch.Tensor, np.ndarray]:
     input_width = input_ncxy.shape[-2]
     input_height = input_ncxy.shape[-1]
-    assert input_width >= target_width
-    assert input_height >= target_height
+    assert input_width >= target_width, f'input {input_width} smaller than target {target_width}'
+    assert input_height >= target_height, f'input {input_height} smaller than target {target_height}'
     margin_width = (input_width - target_width) // 2
     margin_height = (input_height - target_height) // 2
     if (margin_width == 0) and (margin_height == 0):
@@ -161,8 +169,7 @@ def rolling_circle_filter_np(
         x: np.ndarray,
         y: np.ndarray,
         radius_x: float,
-        radius_y: float,
-        eps: float = 1e-6):
+        radius_y: float):
     """Rolling circle filter.
     
     Args:
@@ -191,7 +198,7 @@ def rolling_circle_filter_np(
         dist_mat = (
             inv_radius_y2 * (y_center[:, :, None] - y_slice[:, None, :]) ** 2 +
             inv_radius_x2 * (pos - x_slice[None, None, :]) ** 2)
-        inside_count = np.sum(dist_mat < 1. - eps, axis=-1)
+        inside_count = np.sum(dist_mat < 1. - const.EPS, axis=-1)
         under_count = np.sum((y_center[:, :, None] - radius_y) > y_slice[:, None, :], axis=-1) 
         indices = _first_leq_np(arr=inside_count + under_count, axis=-1, value=0)
         y_bg[:, i_x] = y_center[batch_ravel, indices] + radius_y
@@ -204,7 +211,6 @@ def rolling_circle_filter_torch(
         y: torch.Tensor,
         radius_x: float,
         radius_y: float,
-        eps: float = 1e-6,
         log_progress: bool = False,
         log_every: int = 100):
     """Rolling circle filter.
@@ -227,7 +233,7 @@ def rolling_circle_filter_torch(
     y_bg = torch.zeros_like(y)
     for i_x in range(n_points):
         if log_progress & (i_x % log_every == 0):
-            print(f"processing {i_x} / {n_points} ...")
+            logging.debug(f"processing {i_x} / {n_points} ...")
         pos = x_list[i_x]
         i_left, i_right = _get_overlapping_index_range(x_list, pos, radius_x)
         x_slice = x[i_left:i_right]
@@ -237,7 +243,7 @@ def rolling_circle_filter_torch(
         dist_mat = (
             inv_radius_y2 * (y_center[:, :, None] - y_slice[:, None, :]).pow(2) +
             inv_radius_x2 * (pos - x_slice[None, None, :]).pow(2))
-        inside_count = torch.sum(dist_mat < 1. - eps, dim=-1)
+        inside_count = torch.sum(dist_mat < 1. - const.EPS, dim=-1)
         under_count = torch.sum((y_center[:, :, None] - radius_y) > y_slice[:, None, :], dim=-1) 
         indices = _first_leq_torch(data=inside_count + under_count, dim=-1, value=0)
         y_bg[:, i_x] = y_center[batch_ravel, indices] + radius_y
