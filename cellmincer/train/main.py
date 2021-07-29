@@ -119,7 +119,7 @@ class Train:
                 api_token=config['neptune']['api_token'],
                 project=self.neptune_project,
                 run=neptune_run_id,
-                name=config['neptune']['name'],
+                name=config['neptune'].get('name', None),
                 tags=config['neptune']['tags'])
             self.neptune_run['config'] = config
             
