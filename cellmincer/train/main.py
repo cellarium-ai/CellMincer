@@ -277,6 +277,8 @@ class Train:
                 if self.enable_continuity_reg:
                     c_reg_loss_hist.append(loss_dict['reg_loss'].item())
 
+            current_lr = self.sched.get_lr()[0]
+
             self.optim.step()
             self.sched.step()
             
@@ -287,7 +289,7 @@ class Train:
                 self.neptune_run['train/rec_loss'].log(np.mean(c_rec_loss_hist))
                 if self.enable_continuity_reg:
                     self.neptune_run['train/reg_loss'].log(np.mean(c_reg_loss_hist))
-                self.neptune_run['train/lr'].log(self.sched.get_lr()[0])
+                self.neptune_run['train/lr'].log(current_lr)
 
             # validate with n2s loss on select frames
             if (i_iter + 1) % self.train_config['validate_every'] == 0:
