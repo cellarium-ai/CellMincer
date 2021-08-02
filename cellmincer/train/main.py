@@ -114,10 +114,9 @@ class Train:
         
         # initialize neptune.ai
         if self.neptune_enabled:
-            self.neptune_project = config['neptune']['project']
             self.neptune_run = neptune.init(
                 api_token=config['neptune']['api_token'],
-                project=self.neptune_project,
+                project=config['neptune']['project'],
                 run=neptune_run_id,
                 name=config['neptune'].get('name', None),
                 tags=config['neptune']['tags'])
@@ -188,8 +187,9 @@ class Train:
         torch.save(
             self.sched.state_dict(),
             os.path.join(self.output_dir, 'checkpoint/sched.pt'))
-                
-        self.neptune_run[f'model_ckpt/{index}'].upload(os.path.join(self.output_dir, 'checkpoint/model.pt'))
+
+        if self.neptune_enabled:
+            self.neptune_run[f'model_ckpt/{index}'].upload(os.path.join(self.output_dir, 'checkpoint/model.pt'))
         
         # tarball checkpoint
         checkpoint_path_tmp = os.path.join(self.output_dir, 'checkpoint_tmp.tar.gz')
@@ -202,6 +202,9 @@ class Train:
         torch.save(
             self.denoising_model.state_dict(),
             os.path.join(self.output_dir, f'model.pt'))
+        
+        if self.neptune_enabled:
+            self.neptune_run['final'].upload(os.path.join(self.output_dir, 'model.pt'))
 
     def run(self):
         logging.info('Training model...')
@@ -228,7 +231,12 @@ class Train:
             if update_time:
                 start = time.time()
                 update_time = False
-            
+
+            norm_p = self.train_config['norm_p']
+            # anneal L0 loss
+            if norm_p == 0:
+                norm_p = 2 * (self.train_config['n_iters'] - i_iter) / self.train_config['n_iters']
+
             c_total_loss_hist = []
             c_rec_loss_hist = []
             c_reg_loss_hist = []
@@ -257,7 +265,7 @@ class Train:
                     batch_data=batch_data,
                     ws_denoising_list=self.ws_denoising_list,
                     denoising_model=self.denoising_model,
-                    norm_p=self.train_config['norm_p'],
+                    norm_p=norm_p,
                     loss_type=self.train_config['loss_type'],
                     enable_continuity_reg=self.enable_continuity_reg,
                     reg_func=self.train_config['reg_func'],
@@ -324,7 +332,7 @@ class Train:
                             batch_data=batch_data,
                             ws_denoising_list=self.ws_denoising_list,
                             denoising_model=self.denoising_model,
-                            norm_p=self.train_config['norm_p'],
+                            norm_p=norm_p,
                             loss_type=self.train_config['loss_type'],
                             enable_continuity_reg=self.enable_continuity_reg,
                             reg_func=self.train_config['reg_func'],

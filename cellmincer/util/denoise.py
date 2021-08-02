@@ -285,7 +285,7 @@ def get_noise2self_loss(
         reg_func: str,
         continuity_reg_strength: float,
         noise_threshold_to_std: float,
-        eps: float = 1e-6):
+        eps: float = 1e-8):
     """Calculates the loss of a Noise2Self predictor on a given minibatch."""
     
     assert reg_func in {'clamped_linear', 'tanh'}
