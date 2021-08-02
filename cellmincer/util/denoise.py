@@ -271,8 +271,7 @@ def get_poisson_gaussian_nll(
         obs_ntxy: torch.Tensor,
         mask_ntxy: torch.Tensor,
         scale_ntxy: torch.Tensor):
-    log_var_ntxy = var_ntxy.log(dim=(0, 2, 3))[None, :, None, None]
-    return 0.5 * mask_ntxy * (log_var_ntxy + (pred_ntxy - obs_ntxy).square() / var_ntxy) * scale_ntxy
+    return 0.5 * mask_ntxy * (var_ntxy.log() + (pred_ntxy - obs_ntxy).square() / var_ntxy) * scale_ntxy
     
 
 def get_noise2self_loss(
@@ -345,7 +344,7 @@ def get_noise2self_loss(
                     target_width=x_window,
                     target_height=y_window),
                 scaled_diff_movie_txy=denoised_batch_ntxy[i_dataset, ...])
-            for i_dataset in batch_data['dataset_indices']], dim=0)
+            for i_dataset in batch_data['dataset_indices']], dim=0).unsqueeze(1)
         rec_loss = get_poisson_gaussian_nll(
             var_ntxy=var_ntxy,
             pred_ntxy=denoised_batch_ntxy,
