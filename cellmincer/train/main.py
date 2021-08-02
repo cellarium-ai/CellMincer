@@ -235,7 +235,7 @@ class Train:
             norm_p = self.train_config['norm_p']
             # anneal L0 loss
             if norm_p == 0:
-                norm_p = 2 * (self.train_config['n_iters'] - i_iter) / self.train_config['n_iters']
+                norm_p = (self.train_config['n_iters'] - i_iter) / self.train_config['n_iters']
 
             c_total_loss_hist = []
             c_rec_loss_hist = []
