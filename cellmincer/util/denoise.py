@@ -18,15 +18,15 @@ from .utils import \
     get_nn_spatio_temporal_mean, \
     pad_images_torch
 
-from . import consts
+from . import const
 
 def generate_bernoulli_mask(
         p: float,
         n_batch: int,
         width: int,
         height: int,
-        device: torch.device = consts.DEFAULT_DEVICE,
-        dtype: torch.dtype = consts.DEFAULT_DTYPE) -> torch.Tensor:
+        device: torch.device = const.DEFAULT_DEVICE,
+        dtype: torch.dtype = const.DEFAULT_DTYPE) -> torch.Tensor:
     return torch.distributions.Bernoulli(
         probs=torch.tensor(p, device=device, dtype=dtype)).sample(
         [n_batch, width, height]).type(dtype)
@@ -79,8 +79,8 @@ def generate_occluded_training_data(
         occlusion_strategy: str,
         dataset_indices: np.ndarray = None,
         frame_indices: np.ndarray = None,
-        device: torch.device = consts.DEFAULT_DEVICE,
-        dtype: torch.dtype = consts.DEFAULT_DTYPE):
+        device: torch.device = const.DEFAULT_DEVICE,
+        dtype: torch.dtype = const.DEFAULT_DTYPE):
     """Generates minibatches with appropriate occlusion and padding for training a blind
     denoiser. Supports multiple datasets.
     

@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 from cellmincer.containers import Noise2Self
 from cellmincer.models import DenoisingModel, get_window_padding_from_config
 from cellmincer.util import \
-    consts, \
+    const, \
     crop_center, \
     generate_optimizer, \
     generate_lr_scheduler, \
@@ -259,7 +259,7 @@ class Train:
                     occlusion_radius=self.train_config['occlusion_radius'],
                     occlusion_strategy=self.train_config['occlusion_strategy'],
                     device=self.device,
-                    dtype=consts.DEFAULT_DTYPE)
+                    dtype=const.DEFAULT_DTYPE)
 
                 loss_dict = get_noise2self_loss(
                     batch_data=batch_data,
@@ -325,7 +325,7 @@ class Train:
                         dataset_indices=val_dataset_batch,
                         frame_indices=val_frame_batch,
                         device=self.device,
-                        dtype=consts.DEFAULT_DTYPE)
+                        dtype=const.DEFAULT_DTYPE)
 
                     with torch.no_grad():
                         loss_dict = get_noise2self_loss(

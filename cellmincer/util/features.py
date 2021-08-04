@@ -8,7 +8,7 @@ from scipy.signal import find_peaks
 
 from .utils import crop_center
 
-from . import consts
+from . import const
 
 @dataclass
 class PaddedMovieTorch:
@@ -55,8 +55,8 @@ def generate_padded_movie(
         min_y_padding: int,
         padding_mode: str,
         power_of_two: bool,
-        device: torch.device = consts.DEFAULT_DEVICE,
-        dtype: torch.dtype = consts.DEFAULT_DTYPE) -> PaddedMovieTorch:
+        device: torch.device = const.DEFAULT_DEVICE,
+        dtype: torch.dtype = const.DEFAULT_DTYPE) -> PaddedMovieTorch:
     
     original_n_frames = orig_movie_txy_np.shape[0]
     original_width = orig_movie_txy_np.shape[1]
@@ -259,8 +259,8 @@ class OptopatchGlobalFeatureExtractor:
             trend_func: str = 'mean',
             downsampling_mode: str = 'avg_pool',
             padding_mode: str = 'reflect',
-            device: torch.device = consts.DEFAULT_DEVICE,
-            dtype: torch.dtype = consts.DEFAULT_DTYPE):
+            device: torch.device = const.DEFAULT_DEVICE,
+            dtype: torch.dtype = const.DEFAULT_DTYPE):
         
         self.ws_base = ws_base
         self.select_active_t_range = select_active_t_range

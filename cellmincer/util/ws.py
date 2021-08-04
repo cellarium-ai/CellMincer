@@ -9,7 +9,7 @@ from typing import List, Tuple, Optional, Dict
 from .utils import get_cosine_similarity_with_sequence_np
 from .features import OptopatchGlobalFeatureContainer
 
-from . import consts
+from . import const
 
 
 class OptopatchBaseWorkspace:
@@ -205,8 +205,8 @@ class OptopatchGlobalFeaturesTorchCache:
             features: OptopatchGlobalFeatureContainer,
             x_padding: int,
             y_padding: int,
-            device: torch.device = consts.DEFAULT_DEVICE,
-            dtype: torch.dtype = consts.DEFAULT_DTYPE):
+            device: torch.device = const.DEFAULT_DEVICE,
+            dtype: torch.dtype = const.DEFAULT_DTYPE):
         self.x_padding = x_padding
         self.y_padding = y_padding
         self.device = device
@@ -243,8 +243,8 @@ class OptopatchDenoisingWorkspace:
                  features: OptopatchGlobalFeatureContainer,
                  x_padding: int,
                  y_padding: int,
-                 device: torch.device = consts.DEFAULT_DEVICE,
-                 dtype: torch.dtype = consts.DEFAULT_DTYPE):
+                 device: torch.device = const.DEFAULT_DEVICE,
+                 dtype: torch.dtype = const.DEFAULT_DTYPE):
         self.ws_base_diff = ws_base_diff
         self.ws_base_bg = ws_base_bg
         self.noise_params = noise_params

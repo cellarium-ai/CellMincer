@@ -5,7 +5,7 @@ import torch
 from typing import Optional, Union, List, Tuple
 from bisect import bisect_left, bisect_right
 
-from . import consts
+from . import const
 
 import logging
 

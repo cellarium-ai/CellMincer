@@ -14,7 +14,7 @@ from sklearn.linear_model import LinearRegression
 from abc import abstractmethod
 from typing import List, Optional, Tuple
 
-from cellmincer.util import OptopatchBaseWorkspace, consts
+from cellmincer.util import OptopatchBaseWorkspace, const
 
 class Preprocess:
     def __init__(
@@ -107,7 +107,7 @@ class Preprocess:
             np.min(movie_txy[self.dejitter_config['ignore_first_n_frames']:, :, :]))
         logging.info(f"baseline CCD dc offset: {baseline:.3f}")
         
-        log_movie_txy = np.log(np.maximum(movie_txy - baseline + consts.EPS, 1.))
+        log_movie_txy = np.log(np.maximum(movie_txy - baseline + const.EPS, 1.))
         log_movie_mean_t = log_movie_txy.mean((-1, -2))
 
         if self.dejitter_config['detrending_method'] in {'median', 'mean'}:
@@ -264,8 +264,8 @@ class Preprocess:
         for i_segment in range(self.n_segments):
             # get segment for fitting
             t_fit, fit_seg_txy = self.get_flanking_segments(movie_txy, i_segment)
-            t_fit_torch = torch.tensor(t_fit, device=self.device, dtype=consts.DEFAULT_DTYPE)
-            fit_seg_txy_torch = torch.tensor(fit_seg_txy, device=self.device, dtype=consts.DEFAULT_DTYPE)
+            t_fit_torch = torch.tensor(t_fit, device=self.device, dtype=const.DEFAULT_DTYPE)
+            fit_seg_txy_torch = torch.tensor(fit_seg_txy, device=self.device, dtype=const.DEFAULT_DTYPE)
             width, height = fit_seg_txy_torch.shape[1:]
 
             if self.detrend_config['trend_model'] == 'polynomial':
@@ -274,14 +274,14 @@ class Preprocess:
                     fit_seg_txy_torch=fit_seg_txy_torch,
                     poly_order=self.detrend_config['poly_order'],
                     device=self.device,
-                    dtype=consts.DEFAULT_DTYPE)
+                    dtype=const.DEFAULT_DTYPE)
             elif self.detrend_config['trend_model'] == 'exponential':
                 trend_model = ExponentialDecayIntensityTrendModel(
                     t_fit=t_fit,
                     fit_seg_txy=fit_seg_txy,
                     init_unc_decay_rate=self.detrend_config['init_unc_decay_rate'],
                     device=self.device,
-                    dtype=consts.DEFAULT_DTYPE)
+                    dtype=const.DEFAULT_DTYPE)
             else:
                 raise ValueError()
 
@@ -305,7 +305,7 @@ class Preprocess:
             logging.info(f'detrended segment {i_segment + 1}/{self.n_segments} | loss = {loss / (width * height * len(t_fit)):.6f}')
 
             t_trimmed, trimmed_seg_txy = self.get_trimmed_segment(movie_txy, i_segment)
-            t_trimmed_torch = torch.tensor(t_trimmed, device=self.device, dtype=consts.DEFAULT_DTYPE)
+            t_trimmed_torch = torch.tensor(t_trimmed, device=self.device, dtype=const.DEFAULT_DTYPE)
             mu_txy = trend_model.get_baseline_txy(t_trimmed_torch).detach().cpu().numpy()
 
             if self.detrend_config['plot_segments']:
@@ -433,7 +433,7 @@ class ExponentialDecayIntensityTrendModel(IntensityTrendModel):
         self.pos_trans = torch.nn.Softplus()
         self.unc_decay_rate_xy = torch.nn.Parameter(
             init_unc_decay_rate * torch.ones(
-                fit_seg_txy.shape[1:], dtype=consts.DEFAULT_DTYPE, device=device))
+                fit_seg_txy.shape[1:], dtype=const.DEFAULT_DTYPE, device=device))
         
         init_decay_rate = self.pos_trans(torch.tensor(init_unc_decay_rate)).item()
         before_stim_mean_xy = np.mean(fit_seg_txy[:len(t_fit)//2, ...], 0)
@@ -444,8 +444,8 @@ class ExponentialDecayIntensityTrendModel(IntensityTrendModel):
         a_xy = torch.tensor(
             (before_stim_mean_xy - after_stim_mean_xy) / (
                 np.exp(-init_decay_rate * t_0) - np.exp(-init_decay_rate * t_1)),
-            dtype=consts.DEFAULT_DTYPE, device=device)
-        b_xy = (torch.tensor(before_stim_mean_xy, dtype=consts.DEFAULT_DTYPE, device=device)
+            dtype=const.DEFAULT_DTYPE, device=device)
+        b_xy = (torch.tensor(before_stim_mean_xy, dtype=const.DEFAULT_DTYPE, device=device)
                 - np.exp(-init_decay_rate * t_0) * a_xy)
         
         self.a_xy = torch.nn.Parameter(a_xy)

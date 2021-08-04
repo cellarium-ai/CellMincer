@@ -1,16 +1,13 @@
-import os
 import logging
 import pprint
 import time
 
-import json
 import pickle
 
-import matplotlib.pylab as plt
 import numpy as np
 import torch
 
-from cellmincer.util import OptopatchBaseWorkspace, OptopatchGlobalFeatureExtractor, consts
+from cellmincer.util import OptopatchBaseWorkspace, OptopatchGlobalFeatureExtractor
 
 class Feature:
     def __init__(

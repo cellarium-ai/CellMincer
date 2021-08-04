@@ -14,7 +14,7 @@ from cellmincer.models import DenoisingModel, init_model, get_window_padding_fro
 from cellmincer.util import \
     OptopatchBaseWorkspace, \
     OptopatchDenoisingWorkspace, \
-    consts
+    const
 
 
 class Noise2Self:
@@ -62,7 +62,7 @@ class Noise2Self:
                     x_padding=padding,
                     y_padding=padding,
                     device=self.device,
-                    dtype=consts.DEFAULT_DTYPE
+                    dtype=const.DEFAULT_DTYPE
                 )
             )
 
@@ -77,7 +77,7 @@ class Noise2Self:
         denoising_model = init_model(
             self.model_config,
             device=self.device,
-            dtype=consts.DEFAULT_DTYPE)
+            dtype=const.DEFAULT_DTYPE)
 
         return denoising_model
 
