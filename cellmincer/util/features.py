@@ -10,7 +10,6 @@ from .utils import crop_center
 
 from . import consts
 
-
 @dataclass
 class PaddedMovieTorch:
     t_padding: int
@@ -260,7 +259,6 @@ class OptopatchGlobalFeatureExtractor:
             trend_func: str = 'mean',
             downsampling_mode: str = 'avg_pool',
             padding_mode: str = 'reflect',
-            eps: float = 1e-6,
             device: torch.device = consts.DEFAULT_DEVICE,
             dtype: torch.dtype = consts.DEFAULT_DTYPE):
         
@@ -271,7 +269,6 @@ class OptopatchGlobalFeatureExtractor:
         self.trend_func = trend_func
         self.downsampling_mode = downsampling_mode
         self.padding_mode = padding_mode
-        self.eps = eps
         self.device = device
         self.dtype = dtype
         
@@ -421,7 +418,7 @@ class OptopatchGlobalFeatureExtractor:
                     dt=dt, dx=dx, dy=dy,
                     normalize=False)
                 # normed_current_cross_corr_xy = current_cross_corr_xy
-                normed_current_cross_corr_xy = current_cross_corr_xy / (self.eps + current_detrended_var_xy)
+                normed_current_cross_corr_xy = current_cross_corr_xy / (const.EPS + current_detrended_var_xy)
 
                 self.features.feature_array_list.append(crop_center(
                     upsample_to_numpy(normed_current_cross_corr_xy, depth),
@@ -437,7 +434,7 @@ class OptopatchGlobalFeatureExtractor:
                     dt=dt, dx=dx, dy=dy,
                     normalize=False)
                 # normed_current_cross_corr_xy = current_cross_corr_xy
-                normed_current_cross_corr_xy = current_cross_corr_xy / (self.eps + current_trend_var_xy)
+                normed_current_cross_corr_xy = current_cross_corr_xy / (const.EPS + current_trend_var_xy)
 
                 self.features.feature_array_list.append(crop_center(
                     upsample_to_numpy(normed_current_cross_corr_xy, depth),

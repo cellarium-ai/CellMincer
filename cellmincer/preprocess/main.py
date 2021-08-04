@@ -56,12 +56,12 @@ class Preprocess:
         self.device = torch.device(config['device'])
 
     def run(self):
-        logging.info('Preprocessing...')
+        
+        movie_txy = self.ws_base.movie_txy
         
         # dejitter movie
-        # estimate baseline (CCD dc offset)
-        # this is a heuristic -- ideally, one needs to be given this information!
-        movie_txy = self.dejitter(self.ws_base.movie_txy)
+        if self.dejitter_config['enabled']:
+            movie_txy = self.dejitter(movie_txy)
 
         # estimate noise from dejittered movie
         noise_model_params = self.estimate_noise(movie_txy)
@@ -98,14 +98,16 @@ class Preprocess:
 
         logging.info('Preprocessing done.')
         
-    def dejitter(
-            self,
-            movie_txy: np.ndarray) -> np.ndarray:
-
-        baseline = np.min(movie_txy[self.dejitter_config['ignore_first_n_frames']:, :, :])
-        logging.info(f"baseline CCD dc offset estimate: {baseline:.3f}")
-
-        log_movie_txy = np.log(np.maximum(movie_txy - baseline, 1.))
+    def dejitter(self, movie_txy: np.ndarray) -> np.ndarray:
+        
+        logging.info('Dejittering movie...')
+        
+        baseline = self.dejitter_config.get(
+            'ccd_dc_offset',
+            np.min(movie_txy[self.dejitter_config['ignore_first_n_frames']:, :, :]))
+        logging.info(f"baseline CCD dc offset: {baseline:.3f}")
+        
+        log_movie_txy = np.log(np.maximum(movie_txy - baseline + consts.EPS, 1.))
         log_movie_mean_t = log_movie_txy.mean((-1, -2))
 
         if self.dejitter_config['detrending_method'] in {'median', 'mean'}:
@@ -141,20 +143,20 @@ class Preprocess:
         dejittered_movie_txy = np.exp(log_movie_txy - log_jitter_factor_t[:, None, None]) + baseline
         
         if self.dejitter_config['show_diagnostic_plots']:
-            fg_mask_xy = ws_base.corr_otsu_fg_pixel_mask_xy
+            fg_mask_xy = self.ws_base.corr_otsu_fg_pixel_mask_xy
             bg_mask_xy = ~fg_mask_xy
 
             # raw frame-to-frame log variations
-            fg_raw_mean_t = np.mean(np.log(ws_base.movie_txy.reshape(ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - baseline), axis=-1)
-            bg_raw_mean_t = np.mean(np.log(ws_base.movie_txy.reshape(ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - baseline), axis=-1)
+            fg_raw_mean_t = np.mean(np.log(movie_txy.reshape(self.ws_base.n_frames, -1)[
+                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
+            bg_raw_mean_t = np.mean(np.log(movie_txy.reshape(self.ws_base.n_frames, -1)[
+                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
 
             # de-jittered frame-to-frame log variations
-            fg_dj_mean_t = np.mean(np.log(dejittered_movie_txy.reshape(ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - baseline), axis=-1)
-            bg_dj_mean_t = np.mean(np.log(dejittered_movie_txy.reshape(ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - baseline), axis=-1)
+            fg_dj_mean_t = np.mean(np.log(dejittered_movie_txy.reshape(self.ws_base.n_frames, -1)[
+                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
+            bg_dj_mean_t = np.mean(np.log(dejittered_movie_txy.reshape(self.ws_base.n_frames, -1)[
+                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
 
             fig = plt.figure()
             ax = plt.gca()
@@ -179,21 +181,20 @@ class Preprocess:
         return dejittered_movie_txy
 
 
-    def estimate_noise(
-            self,
-            movie_txy: np.ndarray) -> dict:
-
-        slope_list = []
-        intercept_list = []
+    def estimate_noise(self, movie_txy: np.ndarray) -> dict:
 
         if self.ne_config['plot_example']:
             fig = plt.figure()
             ax = plt.gca()
             ax.set_xlabel('mean')
             ax.set_ylabel('variance')
-            
-            fig.savefig(os.path.join(self.plot_dir, 'noise_mean_var.png'))
 
+        logging.info('Estimating noise...')
+        slope_list = []
+        intercept_list = []
+
+        min_var_empirical = np.inf
+        
         for i_bootstrap in range(self.ne_config['n_bootstrap']):
 
             # choose a random segment
@@ -208,6 +209,7 @@ class Preprocess:
                 i_t:(i_t + self.ne_config['stationarity_window']), ...], axis=0).flatten()
             var_empirical = np.var(trimmed_seg_txy[
                 i_t:(i_t + self.ne_config['stationarity_window']), ...], axis=0, ddof=1).flatten()
+            min_var_empirical = min(min_var_empirical, var_empirical.min())
 
             # perform linear regression
             reg = LinearRegression().fit(mu_empirical[:, None], var_empirical[:, None])
@@ -229,16 +231,13 @@ class Preprocess:
         alpha_median, alpha_std = np.median(slope_list), np.std(slope_list)
         beta_median, beta_std = np.median(intercept_list), np.std(intercept_list)
 
-        # check that all variance is positive
-        # TODO: implement alternative min variance for negative case
+        # ensure positive minimum variance
         for i_segment in range(self.n_segments):
             _, seg_txy = self.get_trimmed_segment(movie_txy, i_segment)
-            min_obs_value_in_segment = np.min(seg_txy)
-            global_min_variance = alpha_median * min_obs_value_in_segment + beta_median
+            global_min_variance = np.maximum(
+                alpha_median * np.min(seg_txy) + beta_median,
+                min_var_empirical).astype('float64')
             logging.info(f'min variance in segment {i_segment}: {global_min_variance:.3f}')
-            
-            if global_min_variance < 0:
-                raise ValueError('estimated negative variance')
 
         return {
             'alpha_median': alpha_median,
@@ -253,6 +252,9 @@ class Preprocess:
             self,
             movie_txy: np.ndarray,
             noise_model_params: dict) -> Tuple[List, List]:
+        
+        logging.info('Detrending segments...')
+        
         # trimmed segments of the movie
         trimmed_segments_txy_list = []
 

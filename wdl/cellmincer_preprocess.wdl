@@ -33,6 +33,8 @@ task RunCellMincerPreprocess {
     }
 
     command <<<
+    
+        set -e
         
         # extract CellMincer
         tar -xvzf ~{cellmincer_tar_gz}

@@ -247,19 +247,18 @@ def get_total_variation(
         dt_frame_ntxy: torch.Tensor,
         noise_std_nxy: torch.Tensor,
         noise_threshold_to_std: float,
-        reg_func: str,
-        eps: float = 1e-6):
+        reg_func: str):
     
     noise_std_ntxy = noise_std_nxy.unsqueeze(1)
     if reg_func == 'clamped_linear':
         return torch.clamp(
-            dt_frame_ntxy / (eps + noise_std_ntxy),
+            dt_frame_ntxy / (const.EPS + noise_std_ntxy),
             min=0.,
             max=noise_threshold_to_std)
     elif reg_func == 'tanh':
-        eta = eps + noise_threshold_to_std
+        eta = const.EPS + noise_threshold_to_std
         return eta * torch.tanh(
-            dt_frame_ntxy / ((eps + noise_std_ntxy) * eta))
+            dt_frame_ntxy / ((const.EPS + noise_std_ntxy) * eta))
     else:
         raise ValueError(
             f"Unknown reg_func value ({reg_func}); options are: 'clamped_linear', 'tanh'")        
@@ -283,8 +282,7 @@ def get_noise2self_loss(
         enable_continuity_reg: bool,
         reg_func: str,
         continuity_reg_strength: float,
-        noise_threshold_to_std: float,
-        eps: float = 1e-8):
+        noise_threshold_to_std: float):
     """Calculates the loss of a Noise2Self predictor on a given minibatch."""
     
     assert reg_func in {'clamped_linear', 'tanh'}
@@ -292,7 +290,7 @@ def get_noise2self_loss(
 
     # iterate over the middle frames and accumulate loss
     def _compute_lp_loss(_err, _norm_p=norm_p, _scale=1.):
-        return (_scale * (_err.abs() + eps).pow(_norm_p)).sum()
+        return (_scale * (_err.abs() + const.EPS).pow(_norm_p)).sum()
     
     x_window, y_window = batch_data['x_window'], batch_data['y_window']
     total_pixels = x_window * y_window
@@ -331,7 +329,7 @@ def get_noise2self_loss(
     
     # reconstruction losses
     total_masked_pixels_t = cropped_mask_ntxy.sum(dim=(0, 2, 3)).type(denoising_model.dtype)
-    loss_scale_t = 1. / ((t_tandem + 1) * (eps + total_masked_pixels_t))
+    loss_scale_t = 1. / ((t_tandem + 1) * (const.EPS + total_masked_pixels_t))
     loss_scale_ntxy = loss_scale_t[None, :, None, None]
     
     # calculate the loss on occluded points of the middle frames
@@ -364,8 +362,7 @@ def get_noise2self_loss(
             dt_frame_ntxy=denoised_batch_ntxy[:, 1:, ...] - denoised_batch_ntxy[:, :-1, ...],
             noise_std_nxy=cropped_movie_t_std_nxy,
             noise_threshold_to_std=noise_threshold_to_std,
-            reg_func=reg_func,
-            eps=eps)
+            reg_func=reg_func)
 
         reg_loss = _compute_lp_loss(
             _err=total_variation_ntxy,

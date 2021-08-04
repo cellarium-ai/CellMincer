@@ -14,8 +14,7 @@ from . import consts
 
 class OptopatchBaseWorkspace:
     """Workspace for caching useful quantities"""
-    
-    EPS = 1e-6
+
     DEFAULT_NEIGHBOR_DX_DY_LIST = [
         (1, 1), (1, 0), (1, -1),
         (0, 1), (0, -1),
@@ -156,7 +155,7 @@ class OptopatchBaseWorkspace:
                 axis=(-2, -1))
             movie_t_corr_dxdy_xy = np.einsum("txy,txy->xy",
                 movie_zero_mean_txy, movie_zero_mean_dxdy_txy) / (
-                self.EPS + self.n_frames * self.movie_t_std_xy * movie_t_std_dxdy_xy)
+                const.EPS + self.n_frames * self.movie_t_std_xy * movie_t_std_dxdy_xy)
             movie_t_corr_xy_list.append(movie_t_corr_dxdy_xy.astype(self.dtype))
         return movie_t_corr_xy_list
     

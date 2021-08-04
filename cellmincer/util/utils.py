@@ -5,6 +5,8 @@ import torch
 from typing import Optional, Union, List, Tuple
 from bisect import bisect_left, bisect_right
 
+from . import consts
+
 import logging
 
 
@@ -167,8 +169,7 @@ def rolling_circle_filter_np(
         x: np.ndarray,
         y: np.ndarray,
         radius_x: float,
-        radius_y: float,
-        eps: float = 1e-6):
+        radius_y: float):
     """Rolling circle filter.
     
     Args:
@@ -197,7 +198,7 @@ def rolling_circle_filter_np(
         dist_mat = (
             inv_radius_y2 * (y_center[:, :, None] - y_slice[:, None, :]) ** 2 +
             inv_radius_x2 * (pos - x_slice[None, None, :]) ** 2)
-        inside_count = np.sum(dist_mat < 1. - eps, axis=-1)
+        inside_count = np.sum(dist_mat < 1. - const.EPS, axis=-1)
         under_count = np.sum((y_center[:, :, None] - radius_y) > y_slice[:, None, :], axis=-1) 
         indices = _first_leq_np(arr=inside_count + under_count, axis=-1, value=0)
         y_bg[:, i_x] = y_center[batch_ravel, indices] + radius_y
@@ -210,7 +211,6 @@ def rolling_circle_filter_torch(
         y: torch.Tensor,
         radius_x: float,
         radius_y: float,
-        eps: float = 1e-6,
         log_progress: bool = False,
         log_every: int = 100):
     """Rolling circle filter.
@@ -243,7 +243,7 @@ def rolling_circle_filter_torch(
         dist_mat = (
             inv_radius_y2 * (y_center[:, :, None] - y_slice[:, None, :]).pow(2) +
             inv_radius_x2 * (pos - x_slice[None, None, :]).pow(2))
-        inside_count = torch.sum(dist_mat < 1. - eps, dim=-1)
+        inside_count = torch.sum(dist_mat < 1. - const.EPS, dim=-1)
         under_count = torch.sum((y_center[:, :, None] - radius_y) > y_slice[:, None, :], dim=-1) 
         indices = _first_leq_torch(data=inside_count + under_count, dim=-1, value=0)
         y_bg[:, i_x] = y_center[batch_ravel, indices] + radius_y
