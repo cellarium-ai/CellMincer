@@ -121,6 +121,7 @@ class Train:
                 name=config['neptune'].get('name', None),
                 tags=config['neptune']['tags'])
             self.neptune_run['config'] = config
+            self.neptune_run['datasets'] = inputs
             
             logging.info(f'Neptune.ai -- logging to {self.neptune_run.get_run_url()}')
 
