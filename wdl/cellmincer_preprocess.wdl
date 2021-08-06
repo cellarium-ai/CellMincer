@@ -49,7 +49,7 @@ task RunCellMincerPreprocess {
         cellmincer preprocess -i ~{input_file} -o ~{input_name} --manifest ~{manifest} --config ~{config} ~{"--clean " + clean_reference}
 
         # run feature
-        cellmincer feature -i ~{input_name}/trend_subtracted.npy -o ~{input_name}/features.pkl
+        cellmincer feature -i ~{input_name}/trend_subtracted.npy -o ~{input_name}
 
         tar --exclude="plots" --exclude=".*" -cvzf ~{input_name}.processed.tar.gz ~{input_name}
         

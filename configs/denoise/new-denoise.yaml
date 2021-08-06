@@ -18,7 +18,6 @@ model:
   type: spatial-unet-2d-temporal-denoiser
   use_attention: false
   use_global_features: true
-  use_layer_norm: false
+  use_layer_norm: true
   use_padding: false
-model_state_path: /home/jupyter/bw-data/cellmincer/models/optosynth-const-lr-2/model.pt
 write_avi: true

@@ -21,6 +21,7 @@ class Denoise:
             self,
             input_dir: str,
             output_dir: str,
+            model_state: str,
             config: dict):
         self.output_dir = output_dir
         self.write_avi = config['write_avi']
@@ -29,7 +30,7 @@ class Denoise:
             datasets=[input_dir],
             config=config).get_resources()
         self.ws_denoising = ws_denoising_list[0]
-        self.denoising_model.load_state_dict(torch.load(config['model_state_path']))
+        self.denoising_model.load_state_dict(torch.load(model_state))
     
     def run(self):
         logging.info('Denoising movie...')

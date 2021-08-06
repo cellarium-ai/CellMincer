@@ -126,6 +126,7 @@ class Train:
             logging.info(f'Neptune.ai -- logging to {self.neptune_run.get_run_url()}')
 
     def evaluate_insight(self, i_iter: int):
+        self.denoising_model.eval()
         for i_dataset, (ws_denoising, clean) in enumerate(zip(self.ws_denoising_list, self.clean_list)):
             denoised = crop_center(
                 self.denoising_model.denoise_movie(ws_denoising).numpy(),
@@ -351,6 +352,11 @@ class Train:
                     self.neptune_run['val/iter'].log(i_iter + 1)
                     self.neptune_run['val/loss'].log(last_val_loss)
 
+            # compute performance metrics with clean reference
+            if self.insight['enabled'] and (i_iter + 1) % self.insight['evaluate_every'] == 0:
+                logging.info(f'Evaluating model output against clean reference')
+                self.evaluate_insight(i_iter)
+
             # log training status
             if (i_iter + 1) % self.train_config['log_every'] == 0:
                 elapsed = time.time() - start
@@ -361,11 +367,6 @@ class Train:
                     f'train loss={last_train_loss:.4f} | '
                     f'val loss={val_loss_str} | '
                     f'{self.train_config["log_every"] / elapsed:.2f} iter/s')
-
-            # compute performance metrics with clean reference
-            if self.insight['enabled'] and (i_iter + 1) % self.insight['evaluate_every'] == 0:
-                logging.info(f'Evaluating model output against clean reference')
-                self.evaluate_insight(i_iter)
 
             # write checkpoint
             if (i_iter + 1) % self.train_config['checkpoint_every'] == 0:

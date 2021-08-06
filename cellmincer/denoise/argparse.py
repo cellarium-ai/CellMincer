@@ -36,6 +36,15 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         help='Directory where outputs are written.')
     
     subparser.add_argument(
+        '--model',
+        nargs=None,
+        type=str,
+        dest='model',
+        default=None,
+        required=True,
+        help='Model state dictionary.')
+    
+    subparser.add_argument(
         '--config',
         nargs=None,
         type=str,

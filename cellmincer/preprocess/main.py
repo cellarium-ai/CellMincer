@@ -253,73 +253,83 @@ class Preprocess:
             movie_txy: np.ndarray,
             noise_model_params: dict) -> Tuple[List, List]:
         
-        logging.info('Detrending segments...')
+        logging.info('Detrending movie...')
         
         # trimmed segments of the movie
         trimmed_segments_txy_list = []
 
         # background activity fits
         mu_segments_txy_list = []
+        
+        if self.detrend_config['enabled']:
 
-        for i_segment in range(self.n_segments):
-            # get segment for fitting
-            t_fit, fit_seg_txy = self.get_flanking_segments(movie_txy, i_segment)
-            t_fit_torch = torch.tensor(t_fit, device=self.device, dtype=const.DEFAULT_DTYPE)
-            fit_seg_txy_torch = torch.tensor(fit_seg_txy, device=self.device, dtype=const.DEFAULT_DTYPE)
-            width, height = fit_seg_txy_torch.shape[1:]
+            logging.info('Fitting baseline curves')
 
-            if self.detrend_config['trend_model'] == 'polynomial':
-                trend_model = PolynomialIntensityTrendModel(
-                    t_fit_torch=t_fit_torch,
-                    fit_seg_txy_torch=fit_seg_txy_torch,
-                    poly_order=self.detrend_config['poly_order'],
-                    device=self.device,
-                    dtype=const.DEFAULT_DTYPE)
-            elif self.detrend_config['trend_model'] == 'exponential':
-                trend_model = ExponentialDecayIntensityTrendModel(
-                    t_fit=t_fit,
-                    fit_seg_txy=fit_seg_txy,
-                    init_unc_decay_rate=self.detrend_config['init_unc_decay_rate'],
-                    device=self.device,
-                    dtype=const.DEFAULT_DTYPE)
-            else:
-                raise ValueError()
+            for i_segment in range(self.n_segments):
+                # get segment for fitting
+                t_fit, fit_seg_txy = self.get_flanking_segments(movie_txy, i_segment)
+                t_fit_torch = torch.tensor(t_fit, device=self.device, dtype=const.DEFAULT_DTYPE)
+                fit_seg_txy_torch = torch.tensor(fit_seg_txy, device=self.device, dtype=const.DEFAULT_DTYPE)
+                width, height = fit_seg_txy_torch.shape[1:]
 
-            # fit 
-            optim = torch.optim.LBFGS(trend_model.parameters(), **self.bfgs)
+                if self.detrend_config['trend_model'] == 'polynomial':
+                    trend_model = PolynomialIntensityTrendModel(
+                        t_fit_torch=t_fit_torch,
+                        fit_seg_txy_torch=fit_seg_txy_torch,
+                        poly_order=self.detrend_config['poly_order'],
+                        device=self.device,
+                        dtype=const.DEFAULT_DTYPE)
+                elif self.detrend_config['trend_model'] == 'exponential':
+                    trend_model = ExponentialDecayIntensityTrendModel(
+                        t_fit=t_fit,
+                        fit_seg_txy=fit_seg_txy,
+                        init_unc_decay_rate=self.detrend_config['init_unc_decay_rate'],
+                        device=self.device,
+                        dtype=const.DEFAULT_DTYPE)
+                else:
+                    raise ValueError()
 
-            def closure():
-                optim.zero_grad()
-                mu_txy = trend_model.get_baseline_txy(t_fit_torch)
-                var_txy = torch.clamp(
-                    noise_model_params['alpha_median'] * mu_txy + noise_model_params['beta_median'],
-                    min=noise_model_params['global_min_variance'])
-                loss_txy = 0.5 * (fit_seg_txy_torch - mu_txy).pow(2) / var_txy + 0.5 * var_txy.log()
-                loss = loss_txy.sum()
-                loss.backward()
-                return loss
+                # fit 
+                optim = torch.optim.LBFGS(trend_model.parameters(), **self.bfgs)
 
-            for i_iter in range(self.detrend_config['max_iters_per_segment']):
-                loss = optim.step(closure).item()
+                def closure():
+                    optim.zero_grad()
+                    mu_txy = trend_model.get_baseline_txy(t_fit_torch)
+                    var_txy = torch.clamp(
+                        noise_model_params['alpha_median'] * mu_txy + noise_model_params['beta_median'],
+                        min=noise_model_params['global_min_variance'])
+                    loss_txy = 0.5 * (fit_seg_txy_torch - mu_txy).pow(2) / var_txy + 0.5 * var_txy.log()
+                    loss = loss_txy.sum()
+                    loss.backward()
+                    return loss
 
-            logging.info(f'detrended segment {i_segment + 1}/{self.n_segments} | loss = {loss / (width * height * len(t_fit)):.6f}')
+                for i_iter in range(self.detrend_config['max_iters_per_segment']):
+                    loss = optim.step(closure).item()
 
-            t_trimmed, trimmed_seg_txy = self.get_trimmed_segment(movie_txy, i_segment)
-            t_trimmed_torch = torch.tensor(t_trimmed, device=self.device, dtype=const.DEFAULT_DTYPE)
-            mu_txy = trend_model.get_baseline_txy(t_trimmed_torch).detach().cpu().numpy()
+                logging.info(f'detrended segment {i_segment + 1}/{self.n_segments} | loss = {loss / (width * height * len(t_fit)):.6f}')
 
-            if self.detrend_config['plot_segments']:
-                fig = plt.figure()
-                ax = plt.gca()
-                ax.scatter(t_trimmed, np.mean(trimmed_seg_txy, axis=(-1, -2)), s=1)
-                ax.scatter(t_trimmed, np.mean(mu_txy, axis=(-1, -2)), s=1)
-                ax.set_title(f'segment {i_segment + 1}')
-                
-                fig.savefig(os.path.join(self.plot_dir, f'detrend_{i_segment + 1}.png'))
+                t_trimmed, trimmed_seg_txy = self.get_trimmed_segment(movie_txy, i_segment)
+                t_trimmed_torch = torch.tensor(t_trimmed, device=self.device, dtype=const.DEFAULT_DTYPE)
+                mu_txy = trend_model.get_baseline_txy(t_trimmed_torch).detach().cpu().numpy()
 
-            # store
-            trimmed_segments_txy_list.append(trimmed_seg_txy)
-            mu_segments_txy_list.append(mu_txy)
+                if self.detrend_config['plot_segments']:
+                    fig = plt.figure()
+                    ax = plt.gca()
+                    ax.scatter(t_trimmed, np.mean(trimmed_seg_txy, axis=(-1, -2)), s=1)
+                    ax.scatter(t_trimmed, np.mean(mu_txy, axis=(-1, -2)), s=1)
+                    ax.set_title(f'segment {i_segment + 1}')
+
+                    fig.savefig(os.path.join(self.plot_dir, f'detrend_{i_segment + 1}.png'))
+
+                # store
+                trimmed_segments_txy_list.append(trimmed_seg_txy)
+                mu_segments_txy_list.append(mu_txy)
+        
+        else:
+            
+            # fit zero trend
+            trimmed_segments_txy_list = [self.get_trimmed_segment(movie_txy, i_segment)[1] for i_segment in range(self.n_segments)]
+            mu_segments_txy_list = [np.zeros(seg_txy.shape) for seg_txy in trimmed_segments_txy_list]
 
         return trimmed_segments_txy_list, mu_segments_txy_list
 

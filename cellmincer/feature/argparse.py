@@ -27,12 +27,18 @@ def add_subparser_args(subparsers: argparse) -> argparse:
     
     subparser.add_argument(
         '-o',
-        '--output-file',
+        '--output-dir',
         nargs=None,
         type=str,
-        dest='output_file',
+        dest='output_dir',
         default=None,
         required=True,
-        help='Output global feature map.')
+        help='Output directory.')
+    
+    subparser.add_argument(
+        '--no-active-range',
+        dest='active_range',
+        action='store_false',
+        help='Disable active range.')
 
     return subparsers

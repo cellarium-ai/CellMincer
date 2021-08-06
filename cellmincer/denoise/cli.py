@@ -30,6 +30,7 @@ class CLI(AbstractCLI):
                 args.output_dir = os.path.expanduser(args.output_dir)
             else:
                 args.output_dir = args.input_dir
+            args.model = os.path.expanduser(args.model)
             args.config = os.path.expanduser(args.config)
         except TypeError:
             raise ValueError('Problem with provided input paths.')
@@ -67,4 +68,5 @@ class CLI(AbstractCLI):
         Denoise(
             input_dir=args.input_dir,
             output_dir=args.output_dir,
+            model_state=args.model,
             config=config).run()
