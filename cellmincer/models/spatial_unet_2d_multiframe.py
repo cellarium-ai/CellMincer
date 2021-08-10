@@ -131,6 +131,37 @@ class SpatialUnet2dMultiframe(DenoisingModel):
         denoised_movie_txy = torch.cat(denoised_movie_txy_full_list, dim=0)
         return denoised_movie_txy
     
+    def summary(
+            self,
+            ws_denoising: OptopatchDenoisingWorkspace,
+            x_window: int,
+            y_window: int):
+        x_padding = self.get_window_padding(x_window)
+        y_padding = self.get_window_padding(y_window)
+        
+        input_data = {}
+        
+        input_data['x'] = ws_denoising.get_movie_slice(
+            t_begin_index=0,
+            t_end_index=self.t_order,
+            x0=0,
+            y0=0,
+            x_window=x_window,
+            y_window=y_window,
+            x_padding=x_padding,
+            y_padding=y_padding)['diff']
+        
+        if self.use_global_features:
+            input_data['features'] = ws_denoising.get_feature_slice(
+                x0=0,
+                y0=0,
+                x_window=x_window,
+                y_window=y_window,
+                x_padding=x_padding,
+                y_padding=y_padding)
+
+        return str(summary(self, input_data=input_data))
+    
     def get_window_padding(
             self,
             output_min_size: Union[int, list, np.ndarray]) -> np.ndarray:
@@ -151,9 +182,9 @@ class SpatialUnet2dMultiframe(DenoisingModel):
         output_min_size = np.array(output_min_size)
         input_size = get_unet_input_size(
             output_min_size=output_min_size,
-            kernel_size=config['spatial_unet_kernel_size'],
-            n_conv_layers=config['spatial_unet_n_conv_layers'],
-            depth=config['spatial_unet_depth'],
+            kernel_size=config['unet_kernel_size'],
+            n_conv_layers=config['unet_n_conv_layers'],
+            depth=config['unet_depth'],
             ds_rate=2)
         padding = ((input_size - output_min_size) // 2).astype('int')
         return padding

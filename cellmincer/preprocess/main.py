@@ -54,6 +54,11 @@ class Preprocess:
         self.detrend_config = config['detrend']
         self.bfgs = config['bfgs']
         self.device = torch.device(config['device'])
+        
+        self.baseline = self.dejitter_config.get(
+            'ccd_dc_offset',
+            np.min(self.ws_base.movie_txy[config['ignore_first_n_frames']:, :, :]))
+        logging.info(f"baseline CCD dc offset: {self.baseline:.3f}")
 
     def run(self):
         
@@ -102,12 +107,7 @@ class Preprocess:
         
         logging.info('Dejittering movie...')
         
-        baseline = self.dejitter_config.get(
-            'ccd_dc_offset',
-            np.min(movie_txy[self.dejitter_config['ignore_first_n_frames']:, :, :]))
-        logging.info(f"baseline CCD dc offset: {baseline:.3f}")
-        
-        log_movie_txy = np.log(np.maximum(movie_txy - baseline + const.EPS, 1.))
+        log_movie_txy = np.log(np.maximum(movie_txy - self.baseline + const.EPS, 1.))
         log_movie_mean_t = log_movie_txy.mean((-1, -2))
 
         if self.dejitter_config['detrending_method'] in {'median', 'mean'}:
@@ -140,7 +140,7 @@ class Preprocess:
             raise ValueError()
 
         log_jitter_factor_t = log_movie_mean_t - log_movie_mean_trend_t
-        dejittered_movie_txy = np.exp(log_movie_txy - log_jitter_factor_t[:, None, None]) + baseline
+        dejittered_movie_txy = np.exp(log_movie_txy - log_jitter_factor_t[:, None, None]) + self.baseline
         
         if self.dejitter_config['show_diagnostic_plots']:
             fg_mask_xy = self.ws_base.corr_otsu_fg_pixel_mask_xy
@@ -148,15 +148,15 @@ class Preprocess:
 
             # raw frame-to-frame log variations
             fg_raw_mean_t = np.mean(np.log(movie_txy.reshape(self.ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
+                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - self.baseline + const.EPS), axis=-1)
             bg_raw_mean_t = np.mean(np.log(movie_txy.reshape(self.ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
+                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - self.baseline + const.EPS), axis=-1)
 
             # de-jittered frame-to-frame log variations
             fg_dj_mean_t = np.mean(np.log(dejittered_movie_txy.reshape(self.ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
+                self.dejitter_config['ignore_first_n_frames']:, fg_mask_xy.flatten()] - self.baseline + const.EPS), axis=-1)
             bg_dj_mean_t = np.mean(np.log(dejittered_movie_txy.reshape(self.ws_base.n_frames, -1)[
-                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - baseline + const.EPS), axis=-1)
+                self.dejitter_config['ignore_first_n_frames']:, bg_mask_xy.flatten()] - self.baseline + const.EPS), axis=-1)
 
             fig = plt.figure()
             ax = plt.gca()
@@ -255,15 +255,16 @@ class Preprocess:
         
         logging.info('Detrending movie...')
         
+        # time coordinates of segments
+        t_trimmed_list = []
+        
         # trimmed segments of the movie
         trimmed_segments_txy_list = []
 
         # background activity fits
         mu_segments_txy_list = []
         
-        if self.detrend_config['enabled']:
-
-            logging.info('Fitting baseline curves')
+        if self.detrend_config['fit_enabled']:
 
             for i_segment in range(self.n_segments):
                 # get segment for fitting
@@ -312,24 +313,26 @@ class Preprocess:
                 t_trimmed_torch = torch.tensor(t_trimmed, device=self.device, dtype=const.DEFAULT_DTYPE)
                 mu_txy = trend_model.get_baseline_txy(t_trimmed_torch).detach().cpu().numpy()
 
-                if self.detrend_config['plot_segments']:
-                    fig = plt.figure()
-                    ax = plt.gca()
-                    ax.scatter(t_trimmed, np.mean(trimmed_seg_txy, axis=(-1, -2)), s=1)
-                    ax.scatter(t_trimmed, np.mean(mu_txy, axis=(-1, -2)), s=1)
-                    ax.set_title(f'segment {i_segment + 1}')
-
-                    fig.savefig(os.path.join(self.plot_dir, f'detrend_{i_segment + 1}.png'))
-
                 # store
+                t_trimmed_list.append(t_trimmed)
                 trimmed_segments_txy_list.append(trimmed_seg_txy)
                 mu_segments_txy_list.append(mu_txy)
         
         else:
             
             # fit zero trend
-            trimmed_segments_txy_list = [self.get_trimmed_segment(movie_txy, i_segment)[1] for i_segment in range(self.n_segments)]
-            mu_segments_txy_list = [np.zeros(seg_txy.shape) for seg_txy in trimmed_segments_txy_list]
+            t_trimmed_list, trimmed_segments_txy_list = zip(*[self.get_trimmed_segment(movie_txy, i_segment) for i_segment in range(self.n_segments)])
+            mu_segments_txy_list = [np.full(seg_txy.shape, self.baseline) for seg_txy in trimmed_segments_txy_list]
+
+        if self.detrend_config['plot_segments']:
+            for i_segment, (t_trimmed, trimmed_seg_txy, mu_txy) in enumerate(zip(t_trimmed_list, trimmed_segments_txy_list, mu_segments_txy_list)):
+                fig = plt.figure()
+                ax = plt.gca()
+                ax.scatter(t_trimmed, np.mean(trimmed_seg_txy, axis=(-1, -2)), s=1)
+                ax.scatter(t_trimmed, np.mean(mu_txy, axis=(-1, -2)), s=1)
+                ax.set_title(f'segment {i_segment + 1}')
+
+                fig.savefig(os.path.join(self.plot_dir, f'detrend_{i_segment + 1}.png'))
 
         return trimmed_segments_txy_list, mu_segments_txy_list
 

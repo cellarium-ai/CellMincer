@@ -1,7 +1,12 @@
+avi:
+  enabled: true
+  n_sigmas: 5
+  range:
+  - 2000
+  - 4000
 device: cuda
 model:
   spatial_unet_activation: relu
-  spatial_unet_batch_norm: false
   spatial_unet_depth: 3
   spatial_unet_first_conv_channels: 32
   spatial_unet_kernel_size: 3
@@ -20,4 +25,3 @@ model:
   use_global_features: true
   use_layer_norm: true
   use_padding: false
-write_avi: true

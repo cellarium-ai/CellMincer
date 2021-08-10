@@ -8,8 +8,10 @@ bfgs:
 dejitter:
   enabled: false
 detrend:
-  enabled: false
+  fit_enabled: false
+  plot_segments: true
 device: cuda
+ignore_first_n_frames: 0
 log_dir: /home/jupyter/bw-data/cellmincer/logs
 noise_estimation:
   n_bootstrap: 500

@@ -4,6 +4,7 @@ insight:
   evaluate_every: 500
   peak: 65535
 model:
+  padding_mode: constant
   spatial_unet_activation: relu
   spatial_unet_batch_norm: false
   spatial_unet_depth: 3
@@ -32,7 +33,6 @@ neptune:
   - miller
 train:
   checkpoint_every: 10000
-  checkpoint_path: /home/jupyter/bw-data/cellmincer/models/miller-ephys-standard/checkpoint.tar.gz
   continuity_reg_strength: 1.0
   enable_continuity_reg: false
   log_every: 100

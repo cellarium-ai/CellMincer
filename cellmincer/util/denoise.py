@@ -216,7 +216,7 @@ def generate_occluded_training_data(
                     loc=padded_global_features_nfxy[:, trend_mean_feature_index, :, :][:, None, ...].expand(
                         n_batch, t_tandem + 1, padded_x_window, padded_y_window),
                     scale=padded_global_features_nfxy[:, detrended_std_feature_index, :, :][:, None, ...].expand(
-                        n_batch, t_tandem + 1, padded_x_window, padded_y_window)).sample())
+                        n_batch, t_tandem + 1, padded_x_window, padded_y_window) + const.EPS).sample())
 
     elif occlusion_strategy == 'validation':
         # no occlusion when validating

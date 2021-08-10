@@ -205,6 +205,7 @@ class OptopatchGlobalFeaturesTorchCache:
             features: OptopatchGlobalFeatureContainer,
             x_padding: int,
             y_padding: int,
+            padding_mode: Optional[str] = 'reflect',
             device: torch.device = const.DEFAULT_DEVICE,
             dtype: torch.dtype = const.DEFAULT_DTYPE):
         self.x_padding = x_padding
@@ -217,7 +218,7 @@ class OptopatchGlobalFeaturesTorchCache:
                 np.pad(
                     array=feature_array_xy,
                     pad_width=((x_padding, x_padding), (y_padding, y_padding)),
-                    mode='reflect')[None, None, ...]
+                    mode=padding_mode)[None, None, ...]
                 for feature_array_xy in features.feature_array_list],
                 axis=-3),
             device=device,
@@ -243,6 +244,7 @@ class OptopatchDenoisingWorkspace:
                  features: OptopatchGlobalFeatureContainer,
                  x_padding: int,
                  y_padding: int,
+                 padding_mode: Optional[str] = 'reflect',
                  device: torch.device = const.DEFAULT_DEVICE,
                  dtype: torch.dtype = const.DEFAULT_DTYPE):
         self.ws_base_diff = ws_base_diff
@@ -260,23 +262,26 @@ class OptopatchDenoisingWorkspace:
         
         self.device = device
         self.dtype = dtype
+        
+        assert padding_mode in ('reflect', 'constant')
 
         # pad the scaled movie
         self.padded_scaled_diff_movie_1txy = np.pad(
             array=ws_base_diff.movie_txy / features.norm_scale,
             pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-            mode='reflect')[None, ...]
+            mode=padding_mode)[None, ...]
         
         self.padded_scaled_bg_movie_1txy = np.pad(
             array=ws_base_bg.movie_txy / features.norm_scale,
             pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-            mode='reflect')[None, ...]
+            mode=padding_mode)[None, ...]
 
         # pad and cache the features
         self.cached_features = OptopatchGlobalFeaturesTorchCache(
             features=features,
             x_padding=x_padding,
             y_padding=y_padding,
+            padding_mode=padding_mode,
             device=device,
             dtype=dtype)
         

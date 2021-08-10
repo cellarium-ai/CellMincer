@@ -24,7 +24,7 @@ class Denoise:
             model_state: str,
             config: dict):
         self.output_dir = output_dir
-        self.write_avi = config['write_avi']
+        self.avi = config['avi']
         
         ws_denoising_list, self.denoising_model = Noise2Self(
             datasets=[input_dir],
@@ -41,15 +41,21 @@ class Denoise:
             target_width=self.ws_denoising.width,
             target_height=self.ws_denoising.height)
 
-        if self.write_avi:
-            denoised_movie_norm_txy = self.normalize_movie(denoised_movie_txy)
+        if self.avi['enabled']:
+            logging.info(f'Writing .avi with n_sigmas={self.avi["n_sigmas"]}')
+            
+            denoised_movie_norm_txy = self.normalize_movie(
+                denoised_movie_txy,
+                n_sigmas=self.avi['n_sigmas'])
 
             writer = skio.FFmpegWriter(
                 os.path.join(self.output_dir, f'denoised_movie.avi'),
                 outputdict={'-vcodec': 'rawvideo', '-pix_fmt': 'yuv420p', '-r': '60'})
+            
+            i_start, i_end = self.avi['range'] if 'range' in self.avi else (0, len(denoised_movie_norm_txy))
 
-            for i in range(len(denoised_movie_norm_txy)):
-                writer.writeFrame(denoised_movie_norm_txy[i].T[None, ...])
+            for i_frame in range(i_start, i_end):
+                writer.writeFrame(denoised_movie_norm_txy[i_frame].T[None, ...])
             writer.close()
 
         denoised_movie_txy *= self.ws_denoising.cached_features.norm_scale

@@ -56,10 +56,13 @@ class CLI(AbstractCLI):
                 format='cellmincer:denoise:%(asctime)s: %(message)s',
                 filename=log_file,
                 filemode='w')
-            console = logging.StreamHandler()
-            formatter = logging.Formatter('cellmincer:denoise:%(asctime)s: %(message)s', '%H:%M:%S')
-            console.setFormatter(formatter)  # Use the same format for stdout.
-            logging.getLogger('').addHandler(console)  # Log to stdout and a file.
+        else:
+            logging.basicConfig(level=logging.INFO)
+        
+        console = logging.StreamHandler()
+        formatter = logging.Formatter('cellmincer:denoise:%(asctime)s: %(message)s', '%H:%M:%S')
+        console.setFormatter(formatter)  # Use the same format for stdout.
+        logging.getLogger('').addHandler(console)  # Log to stdout
 
         # Log the command as typed by user.
         logging.info('Command:\n' + ' '.join(['cellmincer', 'denoise'] + sys.argv[2:]))

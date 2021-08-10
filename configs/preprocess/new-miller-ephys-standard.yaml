@@ -8,8 +8,14 @@ bfgs:
 dejitter:
   enabled: false
 detrend:
-  enabled: false
+  fit_enabled: true
+  init_unc_decay_rate: 1.0
+  max_iters_per_segment: 3
+  plot_segments: true
+  poly_order: 1
+  trend_model: polynomial
 device: cuda
+ignore_first_n_frames: 0
 log_dir: /home/jupyter/bw-data/cellmincer/logs
 noise_estimation:
   n_bootstrap: 500
@@ -17,7 +23,7 @@ noise_estimation:
   plot_subsample: 1000
   stationarity_window: 10
 trim:
-  n_frames_fit_left: 50
-  n_frames_fit_right: 0
+  n_frames_fit_left: 100
+  n_frames_fit_right: 100
   trim_left: 0
   trim_right: 0

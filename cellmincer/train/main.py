@@ -169,7 +169,7 @@ class Train:
                 self.neptune_run[f'metrics/{i_dataset}/ssim/q3'].log(np.quantile(mssim_t, 0.75))
                 self.neptune_run[f'metrics/{i_dataset}/ssim/map'].log(neptune.types.File.as_image(S_accumulate / len(mssim_t)))
         
-    def save_checkpoint(self, index: int):
+    def save_checkpoint(self, checkpoint_path: str, index: int):
         # update checkpoint
         with open(os.path.join(self.output_dir, 'checkpoint/ckpt_index.txt'), 'w') as f:
             f.write(str(index))
@@ -195,7 +195,6 @@ class Train:
         
         # tarball checkpoint
         checkpoint_path_tmp = os.path.join(self.output_dir, 'checkpoint_tmp.tar.gz')
-        checkpoint_path = os.path.join(self.output_dir, 'checkpoint.tar.gz')
         with tarfile.open(checkpoint_path_tmp, 'w:gz') as tar:
             tar.add(os.path.join(self.output_dir, 'checkpoint'), arcname='checkpoint')
         os.replace(checkpoint_path_tmp, checkpoint_path)
@@ -373,7 +372,7 @@ class Train:
                 if 'checkpoint_path' in self.train_config:
                     index = (i_iter + 1) // self.train_config['checkpoint_every']
                     logging.info(f'Updating and gzipping checkpoint at index {index}')
-                    self.save_checkpoint(index)
+                    self.save_checkpoint(self.train_config['checkpoint_path'], index)
                 else:
                     logging.info(f'No checkpoint path specified; skipping.')
 

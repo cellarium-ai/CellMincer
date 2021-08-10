@@ -4,16 +4,17 @@ insight:
   evaluate_every: 500
   peak: 65535
 model:
+  padding_mode: reflect
   spatial_unet_activation: relu
   spatial_unet_batch_norm: false
   spatial_unet_depth: 3
-  spatial_unet_first_conv_channels: 32
+  spatial_unet_first_conv_channels: 64
   spatial_unet_kernel_size: 3
   spatial_unet_n_conv_layers: 3
   spatial_unet_padding: true
   spatial_unet_readout_kernel_size: 1
   temporal_denoiser_activation: relu
-  temporal_denoiser_conv_channels: 32
+  temporal_denoiser_conv_channels: 64
   temporal_denoiser_hidden_dense_layer_dims:
   - 32
   - 32
@@ -60,7 +61,6 @@ train:
     weight_decay: 0.1
   output_min_size_hi: 64
   output_min_size_lo: 32
-  padding_mode: reflect
   reg_func: clamped_linear
   t_tandem: 0
   validate_every: 500
