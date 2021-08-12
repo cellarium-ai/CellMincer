@@ -1,10 +1,12 @@
 avi:
   enabled: true
-  n_sigmas: 5
+  sigma_range:
+  - -5
+  - 5
 device: cuda
 model:
   occlude_padding: false
-  padding_mode: constant
+  padding_mode: reflect
   spatial_unet_activation: relu
   spatial_unet_depth: 3
   spatial_unet_feature_mode: repeat

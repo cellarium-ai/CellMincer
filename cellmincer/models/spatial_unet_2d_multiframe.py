@@ -47,7 +47,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
             up_mode='upsample',
             pool_mode='max',
             norm_mode='batch',
-            unet_kernel_size=config['unet_kernel_size'],
+            kernel_size=config['unet_kernel_size'],
             n_conv_layers=config['unet_n_conv_layers'],
             p_dropout=0.0,
             readout_hidden_layer_channels_list=[config['unet_first_conv_channels']],

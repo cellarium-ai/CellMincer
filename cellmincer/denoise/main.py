@@ -42,10 +42,12 @@ class Denoise:
             target_height=self.ws_denoising.height)
 
         if self.avi['enabled']:
+            assert len(self.avi['sigma_range']) == 2
             
             denoised_movie_norm_txy = self.normalize_movie(
                 denoised_movie_txy,
-                n_sigmas=self.avi['n_sigmas'])
+                sigma_lo=self.avi['sigma_range'][0],
+                sigma_hi=self.avi['sigma_range'][1])
 
             writer = skio.FFmpegWriter(
                 os.path.join(self.output_dir, f'denoised_movie.avi'),
@@ -53,7 +55,7 @@ class Denoise:
             
             i_start, i_end = self.avi['range'] if 'range' in self.avi else (0, len(denoised_movie_norm_txy))
             
-            logging.info(f'Writing .avi with n_sigmas={self.avi["n_sigmas"]}; frames=[{i_start}, {i_end}]')
+            logging.info(f'Writing .avi with sigma range={self.avi["sigma_range"]}; frames=[{i_start}, {i_end}]')
 
             for i_frame in range(i_start, i_end):
                 writer.writeFrame(denoised_movie_norm_txy[i_frame].T[None, ...])
@@ -70,7 +72,8 @@ class Denoise:
     def normalize_movie(
             self,
             movie_txy: np.ndarray,
-            n_sigmas: Optional[float] = 8,
+            sigma_lo: float,
+            sigma_hi: float,
             mean=None,
             std=None,
             max_intensity=255):
@@ -79,5 +82,5 @@ class Denoise:
         if std is None:
             std = movie_txy.std()
         z_movie_txy  = (movie_txy - mean) / std
-        norm = Normalize(vmin=0, vmax=n_sigmas, clip=True)
+        norm = Normalize(vmin=sigma_lo, vmax=sigma_hi, clip=True)
         return max_intensity * norm(z_movie_txy)
