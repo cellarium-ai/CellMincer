@@ -122,7 +122,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
                     y_window=y_window)['diff']
                 
                 denoised_movie_txy_list.append(
-                    (self.unet(padded_sliced_movie_1txy, padded_global_features_nfxy)
+                    (self.unet(padded_sliced_movie_1txy, padded_global_features_1fxy)
                         if self.feature_mode != 'none' else
                         self.unet(padded_sliced_movie_1txy))['readout'][0, ...])
         
