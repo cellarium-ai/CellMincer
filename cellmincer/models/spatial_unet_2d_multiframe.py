@@ -26,13 +26,14 @@ class SpatialUnet2dMultiframe(DenoisingModel):
             device=device,
             dtype=dtype)
         
-        self.use_global_features = config['use_global_features']
+        self.feature_mode = config['unet_feature_mode']
+        assert self.feature_mode in {'repeat', 'once', 'none'}
         
         self.unet = GUNet(
             in_channels=self.t_order,
             out_channels=1,
             data_dim=2,
-            feature_channels=config['n_global_features'] if self.use_global_features else 0,
+            feature_channels=config['n_global_features'],
             noise_channels=0,
             depth=config['unet_depth'],
             first_conv_channels=config['unet_first_conv_channels'],
@@ -42,6 +43,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
             pad=config['use_padding'],
             layer_norm=config['use_layer_norm'],
             attention=config['use_attention'],
+            feature_mode=config['unet_feature_mode'],
             up_mode='upsample',
             pool_mode='max',
             norm_mode='batch',
@@ -64,7 +66,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
 
         # calculate processed features
         unet_endpoint_ntxy = torch.cat([(
-                self.unet(x[:, i_t:i_t+self.t_order, :, :], features) if self.use_global_features else
+                self.unet(x[:, i_t:i_t+self.t_order, :, :], features) if self.feature_mode != 'none' else
                 self.unet(x[:, i_t:i_t+self.t_order, :, :]))['readout']
             for i_t in range(t_tandem + 1)], dim=1)
         
@@ -100,7 +102,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
         
         denoised_movie_txy_list = []
         
-        if self.use_global_features:
+        if self.feature_mode != 'none':
             padded_global_features_1fxy = ws_denoising.get_feature_slice(
                 x0=x0,
                 y0=y0,
@@ -119,7 +121,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
                 
                 denoised_movie_txy_list.append(
                     (self.unet(padded_sliced_movie_1txy, padded_global_features_nfxy)
-                        if self.use_global_features else
+                        if self.feature_mode != 'none' else
                         self.unet(padded_sliced_movie_1txy))['readout'][0, ...])
         
         # fill in edge frames with the ends of the middle frame interval
@@ -151,7 +153,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
             x_padding=x_padding,
             y_padding=y_padding)['diff']
         
-        if self.use_global_features:
+        if self.feature_mode != 'none':
             input_data['features'] = ws_denoising.get_feature_slice(
                 x0=0,
                 y0=0,
