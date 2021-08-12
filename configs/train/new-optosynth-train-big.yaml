@@ -4,10 +4,12 @@ insight:
   evaluate_every: 500
   peak: 65535
 model:
+  occlude_padding: true
   padding_mode: reflect
   spatial_unet_activation: relu
   spatial_unet_batch_norm: false
   spatial_unet_depth: 3
+  spatial_unet_feature_mode: repeat
   spatial_unet_first_conv_channels: 64
   spatial_unet_kernel_size: 3
   spatial_unet_n_conv_layers: 3
@@ -17,12 +19,10 @@ model:
   temporal_denoiser_conv_channels: 64
   temporal_denoiser_hidden_dense_layer_dims:
   - 32
-  - 32
   temporal_denoiser_kernel_size: 5
   temporal_denoiser_n_conv_layers: 3
   type: spatial-unet-2d-temporal-denoiser
-  use_attention: false
-  use_global_features: true
+  use_attention: true
   use_layer_norm: true
   use_padding: false
 neptune:
@@ -43,11 +43,11 @@ train:
     min: 0
     type: cosine-annealing-warmup
     warmup: 0.1
-  n_batch_per_loop: 20
-  n_batch_validation: 10
-  n_frames_validation: 200
+  n_batch_per_loop: 5
+  n_batch_validation: 5
+  n_frames_validation: 100
   n_iters: 50000
-  n_loop: 1
+  n_loop: 4
   noise_threshold_to_std: 0.05
   norm_p: 2
   occlusion_prob: 0.2
