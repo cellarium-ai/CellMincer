@@ -3,6 +3,8 @@ import torch
 from torch import nn
 from typing import Dict, List, Optional, Tuple, Union
 
+from torchinfo import summary
+
 from .components import \
     activation_from_str, \
     GUNet, \
