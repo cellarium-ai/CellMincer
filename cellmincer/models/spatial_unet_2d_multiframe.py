@@ -124,7 +124,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
                 denoised_movie_txy_list.append(
                     (self.unet(padded_sliced_movie_1txy, padded_global_features_1fxy)
                         if self.feature_mode != 'none' else
-                        self.unet(padded_sliced_movie_1txy))['readout'][0, ...])
+                        self.unet(padded_sliced_movie_1txy))['readout'][0, ...].cpu())
         
         # fill in edge frames with the ends of the middle frame interval
         denoised_movie_txy_full_list = \
