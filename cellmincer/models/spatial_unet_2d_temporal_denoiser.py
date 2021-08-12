@@ -33,13 +33,14 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
             device=device,
             dtype=dtype)
         
-        self.use_global_features = config['use_global_features']
+        self.feature_mode = config['spatial_unet_feature_mode']
+        assert self.feature_mode in {'repeat', 'once', 'none'}
         
         self.spatial_unet = GUNet(
             in_channels=1,
             out_channels=1,
             data_dim=2,
-            feature_channels=config['n_global_features'] if self.use_global_features else 0,
+            feature_channels=config['n_global_features'],
             noise_channels=0,
             depth=config['spatial_unet_depth'],
             first_conv_channels=config['spatial_unet_first_conv_channels'],
@@ -49,6 +50,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
             pad=config['use_padding'],
             layer_norm=config['use_layer_norm'],
             attention=config['use_attention'],
+            feature_mode=config['spatial_unet_feature_mode'],
             up_mode='upsample',
             pool_mode='max',
             norm_mode='batch',
@@ -76,14 +78,14 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
             self,
             x: torch.Tensor,
             features: Optional[torch.Tensor] = None) -> torch.Tensor:
-        assert not(self.use_global_features and (features is None))
+        assert not(self.feature_mode != 'none' and (features is None))
         
         t_total = x.shape[1]
         t_tandem = t_total - self.t_order
 
         # calculate processed features
         unet_output_list = [(
-                self.spatial_unet(x[:, i_t:i_t+1, :, :], features) if self.use_global_features else
+                self.spatial_unet(x[:, i_t:i_t+1, :, :], features) if self.feature_mode != 'none' else
                 self.spatial_unet(x[:, i_t:i_t+1, :, :]))
             for i_t in range(t_total)]
         unet_features_nctxy = torch.stack([output['features'] for output in unet_output_list], dim=-3)
@@ -126,7 +128,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
         denoised_movie_txy_list = []
         unet_features_ncxy_list = []
         
-        if self.use_global_features:
+        if self.feature_mode != 'none':
             padded_global_features_1fxy = ws_denoising.get_feature_slice(
                 x0=x0,
                 y0=y0,
@@ -147,7 +149,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
 
                 unet_output = (
                     self.spatial_unet(padded_sliced_movie_1txy, padded_global_features_1fxy)
-                        if self.use_global_features else
+                        if self.feature_mode != 'none' else
                         self.spatial_unet(padded_sliced_movie_1txy))
                 unet_features_ncxy_list.append(unet_output['features'])
 
@@ -164,7 +166,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
 
                 unet_output = (
                     self.spatial_unet(padded_sliced_movie_1txy, padded_global_features_1fxy)
-                    if self.use_global_features else
+                    if self.feature_mode != 'none' else
                     self.spatial_unet(padded_sliced_movie_1txy))
                 unet_features_ncxy_list.append(unet_output['features'])
 
@@ -202,7 +204,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
             x_padding=x_padding,
             y_padding=y_padding)['diff']
         
-        if self.use_global_features:
+        if self.feature_mode != 'none':
             input_data['features'] = ws_denoising.get_feature_slice(
                 x0=0,
                 y0=0,

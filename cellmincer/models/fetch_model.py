@@ -25,9 +25,9 @@ def init_model(
         model_config: dict,
         device: torch.device = torch.device('cuda'),
         dtype: torch.dtype = torch.float32) -> DenoisingModel:
-    try:
+    if model_config['type'] in _MODEL_DICT:
         denoising_model = _MODEL_DICT[model_config['type']](model_config, device, dtype)
-    except KeyError:
+    else:
         logging.warning(f'Unrecognized model type; options are {", ".join([name for name in _MODEL_DICT])}')
         exit(0)
         
@@ -37,10 +37,10 @@ def init_model(
 def get_window_padding_from_config(
         model_config: dict,
         output_min_size: Union[int, list, np.ndarray]) -> np.ndarray:
-    try:
+    if model_config['type'] in _MODEL_DICT:
         return _MODEL_DICT[model_config['type']].get_window_padding_from_config(
             config=model_config,
             output_min_size=output_min_size)
-    except KeyError:
+    else:
         logging.warning(f'Unrecognized model type; options are {", ".join([name for name in _MODEL_DICT])}')
         exit(0)

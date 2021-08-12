@@ -42,7 +42,6 @@ class Denoise:
             target_height=self.ws_denoising.height)
 
         if self.avi['enabled']:
-            logging.info(f'Writing .avi with n_sigmas={self.avi["n_sigmas"]}')
             
             denoised_movie_norm_txy = self.normalize_movie(
                 denoised_movie_txy,
@@ -53,6 +52,8 @@ class Denoise:
                 outputdict={'-vcodec': 'rawvideo', '-pix_fmt': 'yuv420p', '-r': '60'})
             
             i_start, i_end = self.avi['range'] if 'range' in self.avi else (0, len(denoised_movie_norm_txy))
+            
+            logging.info(f'Writing .avi with n_sigmas={self.avi["n_sigmas"]}; frames=[{i_start}, {i_end}]')
 
             for i_frame in range(i_start, i_end):
                 writer.writeFrame(denoised_movie_norm_txy[i_frame].T[None, ...])

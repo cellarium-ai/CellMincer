@@ -1,13 +1,13 @@
 avi:
   enabled: true
   n_sigmas: 5
-  range:
-  - 2000
-  - 4000
 device: cuda
 model:
+  occlude_padding: false
+  padding_mode: constant
   spatial_unet_activation: relu
   spatial_unet_depth: 3
+  spatial_unet_feature_mode: repeat
   spatial_unet_first_conv_channels: 32
   spatial_unet_kernel_size: 3
   spatial_unet_n_conv_layers: 3
@@ -22,6 +22,5 @@ model:
   temporal_denoiser_n_conv_layers: 3
   type: spatial-unet-2d-temporal-denoiser
   use_attention: false
-  use_global_features: true
   use_layer_norm: true
   use_padding: false

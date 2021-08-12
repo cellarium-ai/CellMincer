@@ -46,7 +46,7 @@ train:
   n_batch_per_loop: 20
   n_batch_validation: 10
   n_frames_validation: 200
-  n_iters: 50000
+  n_iters: 80000
   n_loop: 1
   noise_threshold_to_std: 0.05
   norm_p: 2
@@ -59,8 +59,8 @@ train:
     - 0.999
     type: adam
     weight_decay: 0.1
-  output_min_size_hi: 64
-  output_min_size_lo: 32
+  output_min_size_hi: 24
+  output_min_size_lo: 8
   reg_func: clamped_linear
   t_tandem: 0
   validate_every: 500

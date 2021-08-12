@@ -29,6 +29,7 @@ class GUNet(nn.Module):
             layer_norm: bool = True,
             norm_mode: str = 'batch',
             attention: bool = True,
+            feature_mode: str = 'repeat',
             up_mode: str = 'upconv',
             pool_mode: str = 'max',
             kernel_size: int = 3,
@@ -41,8 +42,17 @@ class GUNet(nn.Module):
             dtype: torch.dtype = torch.float32):
         super(GUNet, self).__init__()
         
+        assert feature_mode in {'repeat', 'once', 'none'}
         assert up_mode in {'upconv', 'upsample'}
         assert pool_mode in {'max', 'avg'}
+        
+        # if using features only at entry, bundle feature channels into entry point
+        if feature_mode == 'once':
+            in_channels += feature_channels
+            
+        # if not using repeat mode, silence repeat features
+        if feature_mode != 'repeat':
+            feature_channels = 0
         
         if pad:
             assert readout_kernel_size % 2 == 1
@@ -145,11 +155,11 @@ class GUNet(nn.Module):
         print(self.up_path)
         
         if feature_channels == 0:
-            self.forward = self._forward_wo_features
+            self.forward = self._forward
         else:
-            self.forward = self._forward_w_features
+            self.forward = self._forward_w_repeat_features
 
-    def _forward_w_features(self, x: torch.Tensor, features: Optional[torch.Tensor] = None) \
+    def _forward_w_repeat_features(self, x: torch.Tensor, features: Optional[torch.Tensor] = None) \
             -> Tuple[torch.Tensor, torch.Tensor]:
         
         # if no persistent feature is provided, use input as features
@@ -181,8 +191,11 @@ class GUNet(nn.Module):
             'readout': self.final_trans(self.readout(x))
         }
     
-    def _forward_wo_features(self, x: torch.Tensor) \
+    def _forward(self, x: torch.Tensor, features: Optional[torch.Tensor] = None) \
             -> Tuple[torch.Tensor, torch.Tensor]:
+        if features is not None:
+            x = torch.cat([features, x], - self.data_dim - 1)
+        
         block_list = []
         for i, down_op in enumerate(self.down_path):            
             x = down_op(x)

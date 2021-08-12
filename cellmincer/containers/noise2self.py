@@ -62,6 +62,7 @@ class Noise2Self:
                     x_padding=padding,
                     y_padding=padding,
                     padding_mode=self.model_config['padding_mode'],
+                    occlude_padding=self.model_config['occlude_padding'],
                     device=self.device,
                     dtype=const.DEFAULT_DTYPE
                 )

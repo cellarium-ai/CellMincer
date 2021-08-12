@@ -245,6 +245,7 @@ class OptopatchDenoisingWorkspace:
                  x_padding: int,
                  y_padding: int,
                  padding_mode: Optional[str] = 'reflect',
+                 occlude_padding: Optional[bool] = False,
                  device: torch.device = const.DEFAULT_DEVICE,
                  dtype: torch.dtype = const.DEFAULT_DTYPE):
         self.ws_base_diff = ws_base_diff
@@ -265,17 +266,6 @@ class OptopatchDenoisingWorkspace:
         
         assert padding_mode in ('reflect', 'constant')
 
-        # pad the scaled movie
-        self.padded_scaled_diff_movie_1txy = np.pad(
-            array=ws_base_diff.movie_txy / features.norm_scale,
-            pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-            mode=padding_mode)[None, ...]
-        
-        self.padded_scaled_bg_movie_1txy = np.pad(
-            array=ws_base_bg.movie_txy / features.norm_scale,
-            pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-            mode=padding_mode)[None, ...]
-
         # pad and cache the features
         self.cached_features = OptopatchGlobalFeaturesTorchCache(
             features=features,
@@ -284,6 +274,34 @@ class OptopatchDenoisingWorkspace:
             padding_mode=padding_mode,
             device=device,
             dtype=dtype)
+        
+        trend_mean_feature_index = self.cached_features.get_feature_index('trend_mean_0')
+        detrended_std_feature_index = self.cached_features.get_feature_index('detrended_std_0')
+        
+        # pad the scaled movie with occluded pixels sampled with feature map
+        if occlude_padding:
+            occluded_padding_map_txy = torch.distributions.Normal(
+                    loc=self.cached_features.features_1fxy[0, trend_mean_feature_index, :, :],
+                    scale=self.cached_features.features_1fxy[0, detrended_std_feature_index, :, :] + const.EPS).sample((self.n_frames,)).cpu().numpy()
+
+            occluded_padding_map_txy[:, x_padding:-x_padding, y_padding:-y_padding] = ws_base_diff.movie_txy / features.norm_scale
+        
+            self.padded_scaled_diff_movie_1txy = occluded_padding_map_txy[None, ...]
+
+        else:
+            self.padded_scaled_diff_movie_1txy = np.pad(
+                array=ws_base_diff.movie_txy / features.norm_scale,
+                pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
+                mode=padding_mode)[None, ...]
+#         self.padded_scaled_diff_movie_1txy = np.pad(
+#             array=ws_base_diff.movie_txy / features.norm_scale,
+#             pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
+#             mode=padding_mode)[None, ...]
+        
+        self.padded_scaled_bg_movie_1txy = np.pad(
+            array=ws_base_bg.movie_txy / features.norm_scale,
+            pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
+            mode=padding_mode)[None, ...]
         
     def get_movie_slice(
             self,

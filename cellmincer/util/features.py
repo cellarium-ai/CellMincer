@@ -263,7 +263,6 @@ class OptopatchGlobalFeatureExtractor:
             dtype: torch.dtype = const.DEFAULT_DTYPE):
         
         self.ws_base = ws_base
-        self.select_active_t_range = select_active_t_range
         self.max_depth = max_depth
         self.detrending_order = detrending_order
         self.trend_func = trend_func
