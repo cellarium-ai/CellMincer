@@ -47,7 +47,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
             ch_growth_rate=2,
             ds_rate=2,
             final_trans=lambda x: x,
-            pad=config['use_padding'],
+            pad=config['spatial_unet_padding'],
             layer_norm=config['use_layer_norm'],
             attention=config['use_attention'],
             feature_mode=config['spatial_unet_feature_mode'],

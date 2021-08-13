@@ -42,7 +42,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
             ch_growth_rate=2,
             ds_rate=2,
             final_trans=lambda x: x,
-            pad=config['use_padding'],
+            pad=config['unet_padding'],
             layer_norm=config['use_layer_norm'],
             attention=config['use_attention'],
             feature_mode=config['unet_feature_mode'],
