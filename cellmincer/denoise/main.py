@@ -23,11 +23,12 @@ class Denoise:
             output_dir: str,
             model_state: str,
             config: dict,
-            clean: Optional[str] = None,
             peak: Optional[int] = 65535):
         self.output_dir = output_dir
         self.avi = config['avi']
-        self.clean = np.load(clean) if clean is not None else None
+        
+        clean_path = os.path.join(input_dir, 'clean.npy')
+        self.clean = np.load(clean_path) if os.path.exists(clean_path) else None
         self.peak = peak
         
         ws_denoising_list, self.denoising_model = Noise2Self(
@@ -40,7 +41,7 @@ class Denoise:
         logging.info('Denoising movie...')
         self.denoising_model.eval()
 
-        denoised_movie_txy = crop_center(
+        denoised_txy = crop_center(
             self.denoising_model.denoise_movie(self.ws_denoising).numpy(),
             target_width=self.ws_denoising.width,
             target_height=self.ws_denoising.height)
@@ -48,36 +49,36 @@ class Denoise:
         if self.avi['enabled']:
             assert len(self.avi['sigma_range']) == 2
             
-            denoised_movie_norm_txy = self.normalize_movie(
-                denoised_movie_txy,
+            denoised_norm_txy = self.normalize_movie(
+                denoised_txy,
                 sigma_lo=self.avi['sigma_range'][0],
                 sigma_hi=self.avi['sigma_range'][1])
 
             writer = skio.FFmpegWriter(
-                os.path.join(self.output_dir, f'denoised_movie.avi'),
+                os.path.join(self.output_dir, f'denoised.avi'),
                 outputdict={'-vcodec': 'rawvideo', '-pix_fmt': 'yuv420p', '-r': '60'})
             
-            i_start, i_end = self.avi['range'] if 'range' in self.avi else (0, len(denoised_movie_norm_txy))
+            i_start, i_end = self.avi['range'] if 'range' in self.avi else (0, len(denoised_norm_txy))
             
             logging.info(f'Writing .avi with sigma range={self.avi["sigma_range"]}; frames=[{i_start}, {i_end}]')
 
             for i_frame in range(i_start, i_end):
-                writer.writeFrame(denoised_movie_norm_txy[i_frame].T[None, ...])
+                writer.writeFrame(denoised_norm_txy[i_frame].T[None, ...])
             writer.close()
 
-        denoised_movie_txy *= self.ws_denoising.cached_features.norm_scale
-        denoised_movie_txy += self.ws_denoising.ws_base_bg.movie_txy
+        denoised_txy *= self.ws_denoising.cached_features.norm_scale
+        denoised_txy += self.ws_denoising.ws_base_bg.movie_txy
         
         if self.clean:
-            mse_t = np.mean(np.square(self.clean - denoised_movie_txy), axis=tuple(range(1, self.clean.ndim)))
+            mse_t = np.mean(np.square(self.clean - denoised_txy), axis=tuple(range(1, self.clean.ndim)))
             psnr_t = 10 * np.log10(self.peak * self.peak / mse_t)
             np.save(
                 os.path.join(self.output_dir, 'psnr_t.npy'),
                 psnr_t)
 
         np.save(
-            os.path.join(self.output_dir, 'denoised_movie_tyx.npy'),
-            denoised_movie_txy.transpose((0, 2, 1)))
+            os.path.join(self.output_dir, f'denoised_tyx.npy'),
+            denoised_txy.transpose((0, 2, 1)))
         logging.info('Denoising done.')
 
     def normalize_movie(

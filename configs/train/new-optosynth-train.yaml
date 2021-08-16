@@ -7,7 +7,8 @@ model:
   occlude_padding: true
   padding_mode: reflect
   spatial_unet_activation: relu
-  spatial_unet_batch_norm: false
+  spatial_unet_attention: false
+  spatial_unet_batch_norm: true
   spatial_unet_depth: 3
   spatial_unet_feature_mode: repeat
   spatial_unet_first_conv_channels: 32
@@ -20,11 +21,8 @@ model:
   temporal_denoiser_hidden_dense_layer_dims:
   - 16
   temporal_denoiser_kernel_size: 5
-  temporal_denoiser_n_conv_layers: 3
+  temporal_denoiser_n_conv_layers: 2
   type: spatial-unet-2d-temporal-denoiser
-  use_attention: false
-  use_layer_norm: true
-  use_padding: false
 neptune:
   api_token: eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI0YzBlMThhNS05MzI0LTRhZDEtODIzYy02ZDg0YWMzMzgwNDIifQ==
   enabled: false
