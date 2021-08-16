@@ -48,6 +48,7 @@ class Train:
         
         self.ws_denoising_list, self.denoising_model = Noise2Self(
             datasets=inputs,
+            include_bg=config['train']['loss_type'] == 'poisson_gaussian',
             config=config).get_resources()
         
         # log verbose model summary
@@ -115,7 +116,8 @@ class Train:
         
         self.insight = config['insight']
         if self.insight['enabled']:
-            self.clean_list = [np.load(os.path.join(dataset, 'clean.npy')) for dataset in inputs]
+            self.bg_paths = [os.path.join(dataset, 'trend.npy') for dataset in inputs]
+            self.clean_paths = [os.path.join(dataset, 'clean.npy') for dataset in inputs]
         
         # initialize neptune.ai
         if self.neptune_enabled:
@@ -132,14 +134,16 @@ class Train:
 
     def evaluate_insight(self, i_iter: int):
         self.denoising_model.eval()
-        for i_dataset, (ws_denoising, clean) in enumerate(zip(self.ws_denoising_list, self.clean_list)):
+        for i_dataset, (ws_denoising, bg_path, clean_path) in enumerate(zip(self.ws_denoising_list, self.bg_paths, self.clean_paths)):
             denoised = crop_center(
                 self.denoising_model.denoise_movie(ws_denoising).numpy(),
                 target_width=ws_denoising.width,
                 target_height=ws_denoising.height)
             
             denoised *= ws_denoising.cached_features.norm_scale
-            denoised += ws_denoising.ws_base_bg.movie_txy
+            denoised += np.load(bg_path)
+
+            clean = np.load(clean_path)
             
             # compute psnr
             mse_t = np.mean(np.square(clean - denoised), axis=tuple(range(1, clean.ndim)))

@@ -21,10 +21,12 @@ class Noise2Self:
     def __init__(
             self,
             datasets: List[str],
-            config: dict):
+            config: dict,
+            include_bg: Optional[bool] = True):
         self.datasets = datasets
         
         self.model_config = config['model']
+        self.include_bg = include_bg
         self.device = torch.device(config['device'])
         
     def load_datasets(self) -> List[OptopatchDenoisingWorkspace]:
@@ -35,11 +37,8 @@ class Noise2Self:
         for i_dataset, dataset in enumerate(self.datasets):
             logging.info(f'({i_dataset + 1}/{len(self.datasets)}) {dataset}')
             
-            base_diff_path = os.path.join(dataset, 'trend_subtracted.npy')
-            ws_base_diff = OptopatchBaseWorkspace.from_npy(base_diff_path)
-
-            base_bg_path = os.path.join(dataset, 'trend.npy')
-            ws_base_bg = OptopatchBaseWorkspace.from_npy(base_bg_path)
+            movie_diff = np.load(os.path.join(dataset, 'trend_subtracted.npy'))
+            movie_bg = np.load(os.path.join(dataset, 'trend.npy')) if self.include_bg else None
 
             opto_noise_params_path = os.path.join(dataset, 'noise_params.json')
             with open(opto_noise_params_path, 'r') as f:
@@ -51,12 +50,12 @@ class Noise2Self:
 
             padding = max(get_window_padding_from_config(
                 model_config=self.model_config,
-                output_min_size=np.arange(1, max(ws_base_diff.width, ws_base_diff.height) + 1)))
+                output_min_size=np.arange(1, max(movie_diff.shape[-2:]) + 1)))
 
             ws_denoising_list.append(
                 OptopatchDenoisingWorkspace(
-                    ws_base_diff=ws_base_diff,
-                    ws_base_bg=ws_base_bg,
+                    movie_diff=movie_diff,
+                    movie_bg=movie_bg,
                     noise_params=noise_params,
                     features=feature_container,
                     x_padding=padding,

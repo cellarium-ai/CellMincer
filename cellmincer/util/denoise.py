@@ -176,7 +176,7 @@ def generate_occluded_training_data(
 
     # stack to a batch dimension
     padded_sliced_diff_movie_ntxy = torch.cat(diff_movie_slice_list, dim=0)
-    padded_sliced_bg_movie_ntxy = torch.cat(bg_movie_slice_list, dim=0)
+    padded_sliced_bg_movie_ntxy = torch.cat(bg_movie_slice_list, dim=0) if bg_movie_slice_list[0] is not None else None
     padded_global_features_nfxy = torch.cat(feature_slice_list, dim=0)
 
     # make a hard copy of the to-be-occluded frames

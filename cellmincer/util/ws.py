@@ -4,7 +4,7 @@ from boltons.cacheutils import cachedproperty
 import torch
 import tifffile
 import logging
-from typing import List, Tuple, Optional, Dict
+from typing import Dict, List, Optional, Tuple, Union
 
 from .utils import get_cosine_similarity_with_sequence_np
 from .features import OptopatchGlobalFeatureContainer
@@ -238,8 +238,8 @@ class OptopatchGlobalFeaturesTorchCache:
 class OptopatchDenoisingWorkspace:
     """A workspace containing arrays prepared for denoising (e.g. normalized, padded)"""
     def __init__(self,
-                 ws_base_diff: OptopatchBaseWorkspace,
-                 ws_base_bg: OptopatchBaseWorkspace,
+                 movie_diff: np.ndarray,
+                 movie_bg: Union[np.ndarray, None],
                  noise_params: dict,
                  features: OptopatchGlobalFeatureContainer,
                  x_padding: int,
@@ -248,13 +248,11 @@ class OptopatchDenoisingWorkspace:
                  occlude_padding: Optional[bool] = False,
                  device: torch.device = const.DEFAULT_DEVICE,
                  dtype: torch.dtype = const.DEFAULT_DTYPE):
-        self.ws_base_diff = ws_base_diff
-        self.ws_base_bg = ws_base_bg
         self.noise_params = noise_params
         
-        self.width = ws_base_diff.width
-        self.height = ws_base_diff.height
-        self.n_frames = ws_base_diff.n_frames
+        self.n_frames, self.width, self.height = movie_diff.shape[-3:]
+        
+        assert x_padding > 0 and y_padding > 0
         
         self.x_padding = x_padding
         self.y_padding = y_padding
@@ -281,27 +279,23 @@ class OptopatchDenoisingWorkspace:
         # pad the scaled movie with occluded pixels sampled with feature map
         if occlude_padding:
             occluded_padding_map_txy = torch.distributions.Normal(
-                    loc=self.cached_features.features_1fxy[0, trend_mean_feature_index, :, :],
-                    scale=self.cached_features.features_1fxy[0, detrended_std_feature_index, :, :] + const.EPS).sample((self.n_frames,)).cpu().numpy()
+                loc=self.cached_features.features_1fxy[0, trend_mean_feature_index, :, :],
+                scale=self.cached_features.features_1fxy[0, detrended_std_feature_index, :, :] + const.EPS).sample((self.n_frames,)).cpu().numpy()
 
-            occluded_padding_map_txy[:, x_padding:-x_padding, y_padding:-y_padding] = ws_base_diff.movie_txy / features.norm_scale
+            occluded_padding_map_txy[:, x_padding:-x_padding, y_padding:-y_padding] = movie_diff / features.norm_scale
         
             self.padded_scaled_diff_movie_1txy = occluded_padding_map_txy[None, ...]
 
         else:
             self.padded_scaled_diff_movie_1txy = np.pad(
-                array=ws_base_diff.movie_txy / features.norm_scale,
+                array=movie_diff / features.norm_scale,
                 pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
                 mode=padding_mode)[None, ...]
-#         self.padded_scaled_diff_movie_1txy = np.pad(
-#             array=ws_base_diff.movie_txy / features.norm_scale,
-#             pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-#             mode=padding_mode)[None, ...]
         
         self.padded_scaled_bg_movie_1txy = np.pad(
-            array=ws_base_bg.movie_txy / features.norm_scale,
+            array=movie_bg / features.norm_scale,
             pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-            mode=padding_mode)[None, ...]
+            mode=padding_mode)[None, ...] if movie_bg is not None else None
         
     def get_movie_slice(
             self,
@@ -326,21 +320,25 @@ class OptopatchDenoisingWorkspace:
         if y_padding is None:
             y_padding = self.y_padding
         
-        diff_movie_slice_1txy = self.padded_scaled_diff_movie_1txy[
-            :, t_begin_index:t_end_index, ...][
+        diff_movie_slice_1txy = torch.tensor(
+            self.padded_scaled_diff_movie_1txy[:, t_begin_index:t_end_index, ...][
                 ...,
                 x0:(x0 + x_window + 2 * x_padding),
-                y0:(y0 + y_window + 2 * y_padding)]
+                y0:(y0 + y_window + 2 * y_padding)],
+            device=self.device,
+            dtype=self.dtype)
         
-        bg_movie_slice_1txy = self.padded_scaled_bg_movie_1txy[
-            :, t_begin_index:t_end_index, ...][
+        bg_movie_slice_1txy = torch.tensor(
+            self.padded_scaled_bg_movie_1txy[:, t_begin_index:t_end_index, ...][
                 ...,
                 x0:(x0 + x_window + 2 * x_padding),
-                y0:(y0 + y_window + 2 * y_padding)]
+                y0:(y0 + y_window + 2 * y_padding)],
+            device=self.device,
+            dtype=self.dtype) if self.padded_scaled_bg_movie_1txy else None
 
         return {
-            'bg': torch.tensor(bg_movie_slice_1txy, device=self.device, dtype=self.dtype),
-            'diff': torch.tensor(diff_movie_slice_1txy, device=self.device, dtype=self.dtype)
+            'bg': bg_movie_slice_1txy,
+            'diff': diff_movie_slice_1txy
         }
     
     def get_feature_slice(
