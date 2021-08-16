@@ -5,7 +5,7 @@ avi:
   - 5
 device: cuda
 model:
-  occlude_padding: true
+  occlude_padding: false
   padding_mode: reflect
   spatial_unet_activation: relu
   spatial_unet_attention: false
