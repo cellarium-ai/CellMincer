@@ -22,9 +22,13 @@ class Denoise:
             input_dir: str,
             output_dir: str,
             model_state: str,
-            config: dict):
+            config: dict,
+            clean: Optional[str] = None,
+            peak: Optional[int] = 65535):
         self.output_dir = output_dir
         self.avi = config['avi']
+        self.clean = np.load(clean) if clean is not None else None
+        self.peak = peak
         
         ws_denoising_list, self.denoising_model = Noise2Self(
             datasets=[input_dir],
@@ -63,11 +67,18 @@ class Denoise:
 
         denoised_movie_txy *= self.ws_denoising.cached_features.norm_scale
         denoised_movie_txy += self.ws_denoising.ws_base_bg.movie_txy
+        
+        if self.clean:
+            mse_t = np.mean(np.square(self.clean - denoised_movie_txy), axis=tuple(range(1, self.clean.ndim)))
+            psnr_t = 10 * np.log10(self.peak * self.peak / mse_t)
+            np.save(
+                os.path.join(self.output_dir, 'psnr_t.npy'),
+                psnr_t)
 
         np.save(
-            os.path.join(self.output_dir, f'denoised_movie_tyx.npy'),
+            os.path.join(self.output_dir, 'denoised_movie_tyx.npy'),
             denoised_movie_txy.transpose((0, 2, 1)))
-        logging.info('Done.')
+        logging.info('Denoising done.')
 
     def normalize_movie(
             self,

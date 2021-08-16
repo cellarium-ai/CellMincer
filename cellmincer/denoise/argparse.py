@@ -52,5 +52,14 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         default=None,
         required=True,
         help='Denoising configuration YAML.')
+    
+    subparser.add_argument(
+        '--clean',
+        nargs=None,
+        type=str,
+        dest='clean',
+        default=None,
+        required=False,
+        help='Clean reference movie.')
 
     return subparsers
