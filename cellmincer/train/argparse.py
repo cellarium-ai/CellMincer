@@ -45,6 +45,15 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         help='Model training configuration.')
     
     subparser.add_argument(
+        '--pretrain',
+        nargs=None,
+        type=str,
+        dest='pretrain',
+        default=None,
+        required=False,
+        help='Pre-trained model weights.')
+    
+    subparser.add_argument(
         '--checkpoint',
         nargs=None,
         type=str,

@@ -28,6 +28,7 @@ task RunCellMincerTrain {
         Array[String] input_names
         Array[File] input_tar_gz
         File config
+        File? pretrain
     }
 
     command <<<
@@ -42,7 +43,7 @@ task RunCellMincerTrain {
         tar -xzvf ~{sep="; tar -xzvf " input_tar_gz}
             
         # run train
-        cellmincer train -i ~{sep=" " input_names} -o . --config ~{config} --checkpoint checkpoint.tar.gz
+        cellmincer train -i ~{sep=" " input_names} -o . --config ~{config} ~{"--pretrain " + pretrain} --checkpoint checkpoint.tar.gz
     >>>
     
     runtime {

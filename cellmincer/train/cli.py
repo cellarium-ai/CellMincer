@@ -28,6 +28,8 @@ class CLI(AbstractCLI):
             args.inputs = [os.path.expanduser(x) for x in args.inputs]
             args.output_dir = os.path.expanduser(args.output_dir)
             args.config = os.path.expanduser(args.config)
+            if args.pretrain:
+                args.pretrain = os.path.expanduser(args.pretrain)
             if args.checkpoint:
                 args.checkpoint = os.path.expanduser(args.checkpoint)
         except TypeError:
@@ -70,4 +72,5 @@ class CLI(AbstractCLI):
             inputs=args.inputs,
             output_dir=args.output_dir,
             config=config,
+            pretrain=args.pretrain,
             checkpoint=args.checkpoint).run()

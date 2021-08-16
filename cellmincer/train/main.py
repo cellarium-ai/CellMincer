@@ -33,6 +33,7 @@ class Train:
             inputs: List[str],
             output_dir: str,
             config: dict,
+            pretrain: Optional[str] = None,
             checkpoint: Optional[str] = None):
 
         # compute training padding with maximal output/input receptive field ratio
@@ -65,6 +66,10 @@ class Train:
         self.enable_continuity_reg = self.train_config['enable_continuity_reg']
         self.start_iter = 0
         self.device = torch.device(config['device'])
+        
+        # initialize with pretrained weights
+        if pretrain:
+            self.denoising_model.load_state_dict(torch.load(os.path.join(pretrain)))
         
         # initialize optimizer and scheduler
         self.optim = generate_optimizer(
