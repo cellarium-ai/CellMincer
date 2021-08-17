@@ -239,7 +239,7 @@ class OptopatchDenoisingWorkspace:
     """A workspace containing arrays prepared for denoising (e.g. normalized, padded)"""
     def __init__(self,
                  movie_diff: np.ndarray,
-                 movie_bg: Union[np.ndarray, None],
+                 movie_bg_path: str,
                  noise_params: dict,
                  features: OptopatchGlobalFeatureContainer,
                  x_padding: int,
@@ -251,11 +251,13 @@ class OptopatchDenoisingWorkspace:
         self.noise_params = noise_params
         
         self.n_frames, self.width, self.height = movie_diff.shape[-3:]
+        self._movie_bg_path = movie_bg_path
         
         assert x_padding > 0 and y_padding > 0
         
         self.x_padding = x_padding
         self.y_padding = y_padding
+        self.padding_mode = padding_mode
         self.padded_width = self.width + 2 * x_padding
         self.padded_height = self.height + 2 * y_padding
         
@@ -291,14 +293,18 @@ class OptopatchDenoisingWorkspace:
                 array=movie_diff / features.norm_scale,
                 pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
                 mode=padding_mode)[None, ...]
-        
-        self.padded_scaled_bg_movie_1txy = np.pad(
-            array=movie_bg / features.norm_scale,
-            pad_width=((0, 0), (x_padding, x_padding), (y_padding, y_padding)),
-            mode=padding_mode)[None, ...] if movie_bg is not None else None
+
+    @cachedproperty
+    def padded_scaled_bg_movie_1txy(self) -> np.ndarray:
+        movie_bg = np.load(self._movie_bg_path)
+        return np.pad(
+            array=movie_bg / self.cached_features.norm_scale,
+            pad_width=((0, 0), (self.x_padding, self.x_padding), (self.y_padding, self.y_padding)),
+            mode=self.padding_mode)[None, ...]
         
     def get_movie_slice(
             self,
+            include_bg: bool,
             t_begin_index: int,
             t_end_index: int,
             x0: int,
@@ -334,7 +340,7 @@ class OptopatchDenoisingWorkspace:
                 x0:(x0 + x_window + 2 * x_padding),
                 y0:(y0 + y_window + 2 * y_padding)],
             device=self.device,
-            dtype=self.dtype) if self.padded_scaled_bg_movie_1txy else None
+            dtype=self.dtype) if include_bg else None
 
         return {
             'bg': bg_movie_slice_1txy,

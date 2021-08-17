@@ -74,6 +74,7 @@ def generate_occluded_training_data(
         y_window: int,
         x_padding: int,
         y_padding: int,
+        include_bg: bool,
         occlusion_prob: float,
         occlusion_radius: int,
         occlusion_strategy: str,
@@ -150,6 +151,7 @@ def generate_occluded_training_data(
     # slice the movies (w/ padding)
     movie_slice_dict_list = [
         ws_denoising_list[dataset_indices[i_batch]].get_movie_slice(
+            include_bg=include_bg,
             t_begin_index=t_begin_indices[i_batch],
             t_end_index=t_end_indices[i_batch],
             x0=x0_list[i_batch],
@@ -176,7 +178,7 @@ def generate_occluded_training_data(
 
     # stack to a batch dimension
     padded_sliced_diff_movie_ntxy = torch.cat(diff_movie_slice_list, dim=0)
-    padded_sliced_bg_movie_ntxy = torch.cat(bg_movie_slice_list, dim=0) if bg_movie_slice_list[0] is not None else None
+    padded_sliced_bg_movie_ntxy = torch.cat(bg_movie_slice_list, dim=0) if include_bg else None
     padded_global_features_nfxy = torch.cat(feature_slice_list, dim=0)
 
     # make a hard copy of the to-be-occluded frames

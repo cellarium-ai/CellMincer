@@ -48,8 +48,9 @@ class Train:
         
         self.ws_denoising_list, self.denoising_model = Noise2Self(
             datasets=inputs,
-            include_bg=config['train']['loss_type'] == 'poisson_gaussian',
             config=config).get_resources()
+        
+        self.include_bg = config['train']['loss_type'] == 'poisson_gaussian'
         
         # log verbose model summary
         logging.info(self.denoising_model.summary(
@@ -265,6 +266,7 @@ class Train:
                     y_window=self.y_train_window,
                     x_padding=self.x_train_padding,
                     y_padding=self.y_train_padding,
+                    include_bg=self.include_bg,
                     occlusion_prob=self.train_config['occlusion_prob'],
                     occlusion_radius=self.train_config['occlusion_radius'],
                     occlusion_strategy=self.train_config['occlusion_strategy'],
@@ -329,6 +331,7 @@ class Train:
                         y_window=y_window_full,
                         x_padding=x_padding_full,
                         y_padding=y_padding_full,
+                        include_bg=self.include_bg,
                         occlusion_prob=1,
                         occlusion_radius=0,
                         occlusion_strategy='validation',

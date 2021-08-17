@@ -114,6 +114,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
         with torch.no_grad():
             for i_t in range(mid_frame_begin - t_mid, mid_frame_end - t_mid):
                 padded_sliced_movie_1txy = ws_denoising.get_movie_slice(
+                    include_bg=False,
                     t_begin_index=i_t,
                     t_end_index=i_t + self.t_order,
                     x0=x0,
@@ -146,6 +147,7 @@ class SpatialUnet2dMultiframe(DenoisingModel):
         input_data = {}
         
         input_data['x'] = ws_denoising.get_movie_slice(
+            include_bg=False,
             t_begin_index=0,
             t_end_index=self.t_order,
             x0=0,

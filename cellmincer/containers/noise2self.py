@@ -21,12 +21,10 @@ class Noise2Self:
     def __init__(
             self,
             datasets: List[str],
-            config: dict,
-            include_bg: Optional[bool] = True):
+            config: dict):
         self.datasets = datasets
         
         self.model_config = config['model']
-        self.include_bg = include_bg
         self.device = torch.device(config['device'])
         
     def load_datasets(self) -> List[OptopatchDenoisingWorkspace]:
@@ -38,7 +36,7 @@ class Noise2Self:
             logging.info(f'({i_dataset + 1}/{len(self.datasets)}) {dataset}')
             
             movie_diff = np.load(os.path.join(dataset, 'trend_subtracted.npy'))
-            movie_bg = np.load(os.path.join(dataset, 'trend.npy')) if self.include_bg else None
+            movie_bg_path = os.path.join(dataset, 'trend.npy')
 
             opto_noise_params_path = os.path.join(dataset, 'noise_params.json')
             with open(opto_noise_params_path, 'r') as f:
@@ -55,7 +53,7 @@ class Noise2Self:
             ws_denoising_list.append(
                 OptopatchDenoisingWorkspace(
                     movie_diff=movie_diff,
-                    movie_bg=movie_bg,
+                    movie_bg_path=movie_bg_path,
                     noise_params=noise_params,
                     features=feature_container,
                     x_padding=padding,

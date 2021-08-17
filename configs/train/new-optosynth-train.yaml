@@ -34,7 +34,7 @@ train:
   continuity_reg_strength: 1.0
   enable_continuity_reg: false
   log_every: 100
-  loss_type: lp
+  loss_type: poisson_gaussian
   lr_params:
     max: 0.0001
     min: 0
