@@ -304,11 +304,13 @@ class OptopatchDenoisingWorkspace:
     
     @property
     def diff_movie_txy(self) -> np.ndarray:
-        return self.padded_scaled_diff_movie_1txy[0, :, self.x_padding:-self.x_padding, self.y_padding:-self.y_padding]
+        return self.padded_scaled_diff_movie_1txy[0, :, self.x_padding:-self.x_padding, self.y_padding:-self.y_padding] * \
+            self.cached_features.norm_scale
     
     @property
     def bg_movie_txy(self) -> np.ndarray:
-        return self.padded_scaled_bg_movie_1txy[0, :, self.x_padding:-self.x_padding, self.y_padding:-self.y_padding]
+        return self.padded_scaled_bg_movie_1txy[0, :, self.x_padding:-self.x_padding, self.y_padding:-self.y_padding] * \
+            self.cached_features.norm_scale
         
     def get_movie_slice(
             self,
