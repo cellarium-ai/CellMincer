@@ -69,7 +69,7 @@ class Denoise:
         denoised_txy *= self.ws_denoising.cached_features.norm_scale
         denoised_txy += self.ws_denoising.bg_movie_txy
         
-        if self.clean:
+        if self.clean is not None:
             mse_t = np.mean(np.square(self.clean - denoised_txy), axis=tuple(range(1, self.clean.ndim)))
             psnr_t = 10 * np.log10(self.peak * self.peak / mse_t)
             np.save(
