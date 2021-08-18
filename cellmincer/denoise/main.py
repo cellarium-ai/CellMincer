@@ -67,7 +67,7 @@ class Denoise:
             writer.close()
 
         denoised_txy *= self.ws_denoising.cached_features.norm_scale
-        denoised_txy += self.ws_denoising.ws_base_bg.movie_txy
+        denoised_txy += self.ws_denoising.bg_movie_txy
         
         if self.clean:
             mse_t = np.mean(np.square(self.clean - denoised_txy), axis=tuple(range(1, self.clean.ndim)))

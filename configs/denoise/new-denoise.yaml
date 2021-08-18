@@ -1,7 +1,7 @@
 avi:
   enabled: true
   sigma_range:
-  - -5
+  - 0
   - 5
 device: cuda
 model:
@@ -15,7 +15,7 @@ model:
   spatial_unet_first_conv_channels: 32
   spatial_unet_kernel_size: 3
   spatial_unet_n_conv_layers: 3
-  spatial_unet_padding: true
+  spatial_unet_padding: false
   spatial_unet_readout_kernel_size: 1
   temporal_denoiser_activation: relu
   temporal_denoiser_conv_channels: 32

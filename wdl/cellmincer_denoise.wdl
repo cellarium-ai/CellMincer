@@ -34,6 +34,8 @@ task RunCellMincerDenoise {
     }
 
     command <<<
+    
+        apt-get -y update && apt-get -y install ffmpeg
         
         # extract CellMincer
         tar -xvzf ~{cellmincer_tar_gz}
@@ -42,7 +44,7 @@ task RunCellMincerDenoise {
         pip install -e CellMincer/
         
         # extract all .tar.gz
-        tar -xzvf input_tar_gz
+        tar -xzvf ~{input_tar_gz}
             
         # run denoise
         cellmincer denoise -i ~{input_name} -o . --model ~{model} --config ~{config}
