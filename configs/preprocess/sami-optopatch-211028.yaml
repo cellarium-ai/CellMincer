@@ -8,7 +8,7 @@ bfgs:
 dejitter:
   detrending_method: stft
   detrending_order: 3
-  enabled: true
+  enabled: false
   ignore_first_n_frames: 100
   show_diagnostic_plots: true
   stft_lp_cutoff: 80.0

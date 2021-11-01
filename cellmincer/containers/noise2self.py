@@ -85,5 +85,6 @@ class Noise2Self:
 
         denoising_model = self.instance_model(
             n_global_features=ws_denoising_list[0].n_global_features)
+        logging.info(denoising_model.summary(ws_denoising_list[0], 30, 30))
         
         return ws_denoising_list, denoising_model

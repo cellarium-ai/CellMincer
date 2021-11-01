@@ -26,9 +26,14 @@ class Denoise:
             peak: Optional[int] = 65535):
         self.output_dir = output_dir
         self.avi = config['avi']
+        self.window = config.get('window') # None if not provided
         
         clean_path = os.path.join(input_dir, 'clean.npy')
         self.clean = np.load(clean_path) if os.path.exists(clean_path) else None
+        if self.window:
+            self.clean = self.clean[...,
+                self.window['x0']:self.window['x0'] + self.window['x_window'],
+                self.window['y0']:self.window['y0'] + self.window['y_window']]
         self.peak = peak
         
         ws_denoising_list, self.denoising_model = Noise2Self(
@@ -41,10 +46,15 @@ class Denoise:
         logging.info('Denoising movie...')
         self.denoising_model.eval()
 
-        denoised_txy = crop_center(
-            self.denoising_model.denoise_movie(self.ws_denoising).numpy(),
-            target_width=self.ws_denoising.width,
-            target_height=self.ws_denoising.height)
+        if self.window:
+            denoised_txy = self.denoising_model.denoise_movie(
+                self.ws_denoising,
+                x0=self.window['x0'],
+                y0=self.window['y0'],
+                x_window=self.window['x_window'],
+                y_window=self.window['y_window']).numpy()
+        else:
+            denoised_txy = self.denoising_model.denoise_movie(self.ws_denoising).numpy()
 
         if self.avi['enabled']:
             assert len(self.avi['sigma_range']) == 2
@@ -67,7 +77,12 @@ class Denoise:
             writer.close()
 
         denoised_txy *= self.ws_denoising.cached_features.norm_scale
-        denoised_txy += self.ws_denoising.bg_movie_txy
+        if self.window:
+            denoised_txy += self.ws_denoising.bg_movie_txy[...,
+                self.window['x0']:self.window['x0'] + self.window['x_window'],
+                self.window['y0']:self.window['y0'] + self.window['y_window']]
+        else:
+            denoised_txy += self.ws_denoising.bg_movie_txy
         
         if self.clean is not None:
             mse_t = np.mean(np.square(self.clean - denoised_txy), axis=tuple(range(1, self.clean.ndim)))

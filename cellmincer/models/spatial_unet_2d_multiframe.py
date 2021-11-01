@@ -12,8 +12,9 @@ from .components import \
 
 from .denoising_model import DenoisingModel
 
-from cellmincer.util.ws import OptopatchDenoisingWorkspace
-
+from cellmincer.util import \
+    OptopatchDenoisingWorkspace, \
+    crop_center
 
 class SpatialUnet2dMultiframe(DenoisingModel):
     def __init__(
@@ -134,15 +135,17 @@ class SpatialUnet2dMultiframe(DenoisingModel):
             [denoised_movie_txy_list[-1] for i in range(t_end - mid_frame_end)]
         
         denoised_movie_txy = torch.cat(denoised_movie_txy_full_list, dim=0)
-        return denoised_movie_txy
+        return crop_center(
+            denoised_movie_txy,
+            target_width=x_window,
+            target_height=y_window)
     
     def summary(
             self,
             ws_denoising: OptopatchDenoisingWorkspace,
             x_window: int,
             y_window: int):
-        x_padding = self.get_window_padding(x_window)
-        y_padding = self.get_window_padding(y_window)
+        x_padding, y_padding = self.get_window_padding([x_window, y_window])
         
         input_data = {}
         
@@ -171,26 +174,24 @@ class SpatialUnet2dMultiframe(DenoisingModel):
     def get_window_padding(
             self,
             output_min_size: Union[int, list, np.ndarray]) -> np.ndarray:
-        output_min_size = np.array(output_min_size)
         input_size = get_unet_input_size(
             output_min_size=output_min_size,
             kernel_size=self.unet.kernel_size,
             n_conv_layers=self.unet.n_conv_layers,
             depth=self.unet.depth,
             ds_rate=self.unet.ds_rate)
-        padding = ((input_size - output_min_size) // 2).astype('int')
+        padding = (input_size - output_min_size) // 2
         return padding
 
     @staticmethod
     def get_window_padding_from_config(
             config: dict,
             output_min_size: Union[int, list, np.ndarray]) -> np.ndarray:
-        output_min_size = np.array(output_min_size)
         input_size = get_unet_input_size(
             output_min_size=output_min_size,
             kernel_size=config['unet_kernel_size'],
             n_conv_layers=config['unet_n_conv_layers'],
             depth=config['unet_depth'],
             ds_rate=2)
-        padding = ((input_size - output_min_size) // 2).astype('int')
+        padding = (input_size - output_min_size) // 2
         return padding

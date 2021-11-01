@@ -151,9 +151,6 @@ class GUNet(nn.Module):
         self.to(device)
         self.type(dtype)
         
-        print(self.down_path)
-        print(self.up_path)
-        
         if feature_channels == 0:
             self.forward = self._forward
         else:
@@ -231,37 +228,14 @@ def get_unet_input_size(
     
     """
     delta = n_conv_layers * (kernel_size - 1)
-    size = output_min_size
+    size = np.array(output_min_size)
     
     for i in range(depth - 1):
         size = np.ceil((size + delta) / ds_rate)
-    size += delta
+    
+    input_size = np.array(size, dtype=int) + delta
+    
     for i in range(depth - 1):
-        size = size * 2 + delta
-        
-    return size
-
-
-def get_best_gunet_input_output_size(
-        kernel_size: int,
-        n_conv_layers: int,
-        depth: int,
-        ds_rate: int,
-        output_min_size_lo: int,
-        output_min_size_hi: int) -> int:
-    '''
-    Determines the best input size for an unpadded U-Net such that it does not
-    lead to aliasing AND it yields the highest output to input area ratio.
+        input_size = input_size * ds_rate + delta
     
-    Returns the corresponding input and output dimensions.
-    '''
-    output_size = np.arange(output_min_size_lo, output_min_size_hi + 1)
-    input_size = get_unet_input_size(
-        output_min_size=output_size,
-        kernel_size=kernel_size, 
-        n_conv_layers=n_conv_layers,
-        depth=depth,
-        ds_rate=ds_rate)
-    
-    best = np.argmax(output_size / input_size)
-    return input_size[best], output_size[best]
+    return input_size

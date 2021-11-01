@@ -24,3 +24,8 @@ model:
   temporal_denoiser_kernel_size: 5
   temporal_denoiser_n_conv_layers: 2
   type: spatial-unet-2d-temporal-denoiser
+window:
+  x0: 50
+  y0: 70
+  x_window: 30
+  y_window: 30
