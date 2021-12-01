@@ -25,6 +25,9 @@ class Denoise:
             config: dict,
             peak: Optional[int] = 65535):
         self.output_dir = output_dir
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
+
         self.avi = config['avi']
         self.window = config.get('window') # None if not provided
         
