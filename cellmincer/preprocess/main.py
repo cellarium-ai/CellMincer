@@ -47,6 +47,7 @@ class Preprocess:
         self.n_frames_per_segment = manifest['n_frames_per_segment']
         self.n_segments = manifest['n_segments']
         self.sampling_rate = manifest['sampling_rate']
+        self.stim = manifest.get('stim')
         
         self.dejitter_config = config['dejitter']
         self.ne_config = config['noise_estimation']
@@ -94,6 +95,19 @@ class Preprocess:
                 for i_segment in range(self.n_segments)])
             output_file = os.path.join(self.output_dir, 'clean.npy')
             np.save(output_file, trimmed_clean_txy)
+            
+        # writing active range mask if stim params provided
+        if self.stim:
+            mask = np.zeros(self.n_frames_per_segment * self.n_segments, dtype=np.bool)
+            for i_seg in range(self.stim['segment_start'], self.stim['segment_end']):
+                mask[i_seg * self.n_frames_per_segment + self.stim['frame_start']:
+                     i_seg * self.n_frames_per_segment + self.stim['frame_end']] = 1
+            mask = np.concatenate([
+                mask[i_seg * self.n_frames_per_segment + self.trim['trim_left']:
+                     (i_seg + 1) * self.n_frames_per_segment - self.trim['trim_right']]
+                for i_seg in range(self.n_segments)])
+            output_file = os.path.join(self.output_dir, 'active_mask.npy')
+            np.save(output_file, mask)
 
         logging.info('Preprocessing done.')
         
@@ -252,6 +266,13 @@ class Preprocess:
             noise_model_params: dict) -> Tuple[List, List]:
         
         logging.info('Detrending movie...')
+
+        assert self.detrend_config['smoothing'] in ('none', 'median')
+
+        if self.detrend_config['smoothing'] == 'median':
+            fit_movie_txy = self.apply_median_smoothing(movie_txy)
+        elif self.detrend_config['smoothing'] == 'none':
+            fit_movie_txy = movie_txy
         
         # time coordinates of segments
         t_trimmed_list = []
@@ -264,7 +285,8 @@ class Preprocess:
         
         for i_segment in range(self.n_segments):
             # get segment for fitting
-            t_fit, fit_seg_txy = self.get_flanking_segments(movie_txy, i_segment)
+            t_fit, fit_seg_txy = self.get_flanking_segments(fit_movie_txy, i_segment)
+
             t_fit_torch = torch.tensor(t_fit, device=self.device, dtype=const.DEFAULT_DTYPE)
             fit_seg_txy_torch = torch.tensor(fit_seg_txy, device=self.device, dtype=const.DEFAULT_DTYPE)
             width, height = fit_seg_txy_torch.shape[1:]
@@ -312,8 +334,10 @@ class Preprocess:
             if self.detrend_config['plot_segments']:
                 fig = plt.figure()
                 ax = plt.gca()
-                ax.scatter(t_trimmed, np.mean(trimmed_seg_txy, axis=(-1, -2)), s=1)
-                ax.scatter(t_trimmed, np.mean(mu_txy, axis=(-1, -2)), s=1)
+                ax.scatter(t_trimmed, np.mean(trimmed_seg_txy, axis=(-1, -2)), s=1, label='trimmed')
+                ax.scatter(t_fit, np.mean(fit_seg_txy, axis=(-1, -2)), s=1, label='fit')
+                ax.scatter(t_trimmed, np.mean(mu_txy, axis=(-1, -2)), s=1, label='trend')
+                ax.legend()
                 ax.set_title(f'segment {i_segment + 1}')
 
                 fig.savefig(os.path.join(self.plot_dir, f'detrend_{i_segment + 1}.png'))
@@ -355,11 +379,11 @@ class Preprocess:
             self,
             movie_txy: np.ndarray,
             i_stim: int,
-            tranform_time: bool = True,) -> np.ndarray:
+            transform_time: bool = True) -> np.ndarray:
         i_t_begin = self.n_frames_per_segment * i_stim + self.trim['trim_left']
         i_t_end = self.n_frames_per_segment * (i_stim + 1) - self.trim['trim_right']
         i_t_list = [i_t for i_t in range(i_t_begin, i_t_end)]
-        if tranform_time:
+        if transform_time:
             t = np.asarray([i_t - i_t_begin for i_t in i_t_list]) / self.sampling_rate
         else:
             t = i_t_list
@@ -388,6 +412,20 @@ class Preprocess:
 
         return t, movie_txy[i_t_list, ...]
     
+    def apply_median_smoothing(
+            self,
+            movie_txy: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        # force window length to be odd
+        window_length = self.detrend_config['smoothing_window']
+        if window_length % 2 == 0:
+            window_length += 1
+        pad_length = window_length // 2
+        
+        padded_movie_txy = np.pad(movie_txy, ((pad_length, pad_length), (0, 0), (0, 0)), 'edge')
+        median_txy = np.stack([np.median(padded_movie_txy[i:i + window_length], axis=0) for i in range(movie_txy.shape[0])], axis=0)
+        
+        return median_txy
+    
     @staticmethod
     def ws_base_from_input_manifest(
             input_file: str,
@@ -402,7 +440,7 @@ class Preprocess:
         elif input_file.endswith('.bin'):
             ws_base = OptopatchBaseWorkspace.from_bin_uint16(
                 input_file,
-                n_frames=manifest['n_frames'],
+                n_frames=manifest['n_frames_per_segment'] * manifest['n_segments'],
                 width=manifest['width'],
                 height=manifest['height'],
                 order=manifest['order'])

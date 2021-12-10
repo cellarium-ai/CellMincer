@@ -1,13 +1,19 @@
 matplotlib
 numpy
 scipy
+tangled-up-in-unicode==0.1.0
 tifffile
-torch
+torch>=1.10
 torchinfo
 boltons
+fastapi
+pydantic==1.8.2
+pytorch-lightning
 pyyaml
 scikit-image
 scikit-learn
 scikit-video
-neptune-client==0.9.16
+neptune-client>=0.14.2
+protobuf==3.19.4
+typing_extensions>=3.10.0, <4.0.0.0
 cosine_annealing_warmup @ https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/tarball/master#egg=cosine_annealing_warmup

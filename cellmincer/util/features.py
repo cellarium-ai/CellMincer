@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 from scipy.signal import find_peaks
 
+
 from .utils import crop_center
 
 from . import const
@@ -55,7 +56,6 @@ def generate_padded_movie(
         min_y_padding: int,
         padding_mode: str,
         power_of_two: bool,
-        device: torch.device = const.DEFAULT_DEVICE,
         dtype: torch.dtype = const.DEFAULT_DTYPE) -> PaddedMovieTorch:
     
     original_n_frames = orig_movie_txy_np.shape[0]
@@ -87,7 +87,6 @@ def generate_padded_movie(
 
     padded_movie_txy_torch = torch.tensor(
         padded_movie_txy_np,
-        device=device,
         dtype=dtype)
 
     return PaddedMovieTorch(
@@ -111,7 +110,6 @@ def get_trend_movie(
         (padded_movie.original_n_frames + 2 * padded_movie.t_padding - 2 * order,
          padded_movie.original_width + 2 * padded_movie.x_padding,
          padded_movie.original_height + 2 * padded_movie.y_padding),
-        device=padded_movie.padded_movie_txy.device,
         dtype=padded_movie.padded_movie_txy.dtype)
 
     # calculate temporal moving average
@@ -253,13 +251,13 @@ class OptopatchGlobalFeatureExtractor:
     def __init__(
             self,
             ws_base: 'OptopatchBaseWorkspace',
+            active_mask: Optional[np.ndarray],
             select_active_t_range: bool = True,
             max_depth: int = 3,
             detrending_order: int = 10,
             trend_func: str = 'mean',
             downsampling_mode: str = 'avg_pool',
             padding_mode: str = 'reflect',
-            device: torch.device = const.DEFAULT_DEVICE,
             dtype: torch.dtype = const.DEFAULT_DTYPE):
         
         self.ws_base = ws_base
@@ -268,12 +266,10 @@ class OptopatchGlobalFeatureExtractor:
         self.trend_func = trend_func
         self.downsampling_mode = downsampling_mode
         self.padding_mode = padding_mode
-        self.device = device
         self.dtype = dtype
         
         # containers
-        self.active_mask_t = self.determine_active_t_range(
-            ws_base, select_active_t_range)
+        self.active_mask_t = active_mask if active_mask is not None else self.determine_active_t_range(ws_base, select_active_t_range)
         self.features = OptopatchGlobalFeatureContainer()
         
         # populate features
@@ -333,7 +329,6 @@ class OptopatchGlobalFeatureExtractor:
             min_y_padding=2 ** self.max_depth,
             padding_mode=self.padding_mode,
             power_of_two=True,
-            device=self.device,
             dtype=self.dtype)
 
         # normalization scale

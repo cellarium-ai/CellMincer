@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
+import pytorch_lightning as pl
 
 import logging
 from typing import Tuple, Union
@@ -8,13 +9,11 @@ from typing import Tuple, Union
 from cellmincer.util.ws import OptopatchBaseWorkspace, OptopatchDenoisingWorkspace
 
 
-class DenoisingModel(nn.Module):
+class DenoisingModel(pl.LightningModule):
     def __init__(
             self,
             name: str,
-            t_order: int,
-            device: torch.device,
-            dtype: torch.dtype):
+            t_order: int):
         if t_order is None:
             logging.warning('t_order assignment deferred; ensure this behavior is intended')
             logging.info(f'name: {name}')
@@ -25,8 +24,6 @@ class DenoisingModel(nn.Module):
         super(DenoisingModel, self).__init__()
         self.name = name
         self.t_order = t_order
-        self.device = device
-        self.dtype = dtype
 
     '''
     Denoises the 'diff' movie segment in ws_denoising,
@@ -57,6 +54,13 @@ class DenoisingModel(nn.Module):
     @staticmethod
     def get_window_padding(
             output_min_size: Union[int, np.ndarray]) -> Union[int, np.ndarray]:
+        raise NotImplementedError
+
+    '''
+    Returns the temporal order of a model with given configuration.
+    '''
+    @staticmethod
+    def get_temporal_order_from_config(config: dict) -> int:
         raise NotImplementedError
 
     '''
