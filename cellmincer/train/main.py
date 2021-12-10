@@ -34,7 +34,8 @@ class Train:
             output_dir: str,
             config: dict,
             pretrain: Optional[str] = None,
-            checkpoint: Optional[str] = None):
+            checkpoint: Optional[str] = None,
+            temp: Optional[str] = None):
 
         # compute training padding with maximal output/input receptive field ratio
         output_min_size = np.arange(config['train']['output_min_size_lo'], config['train']['output_min_size_hi'] + 1)
@@ -50,7 +51,7 @@ class Train:
             datasets=inputs,
             config=config).get_resources()
         
-        self.include_bg = config['train']['loss_type'] == 'poisson_gaussian'
+        self.include_bg = (config['train']['loss_type'] == 'poisson_gaussian')
         
         # log verbose model summary
         logging.info(self.denoising_model.summary(

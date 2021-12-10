@@ -98,7 +98,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
             for i_t in range(t_tandem + 1)], dim=1)
             
         return temporal_endpoint_ntxy
-    
+
     def denoise_movie(
             self,
             ws_denoising: OptopatchDenoisingWorkspace,

@@ -32,6 +32,8 @@ class CLI(AbstractCLI):
                 args.pretrain = os.path.expanduser(args.pretrain)
             if args.checkpoint:
                 args.checkpoint = os.path.expanduser(args.checkpoint)
+            if args.temp:
+                args.temp = os.path.expanduser(args.temp)
         except TypeError:
             raise ValueError('Problem with provided input paths.')
 
@@ -73,4 +75,5 @@ class CLI(AbstractCLI):
             output_dir=args.output_dir,
             config=config,
             pretrain=args.pretrain,
-            checkpoint=args.checkpoint).run()
+            checkpoint=args.checkpoint,
+            temp=temp).run()
