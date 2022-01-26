@@ -31,12 +31,6 @@ class Denoise:
         self.avi = config['avi']
         self.window = config.get('window') # None if not provided
         
-        clean_path = os.path.join(input_dir, 'clean.npy')
-        self.clean = np.load(clean_path) if os.path.exists(clean_path) else None
-        if self.window:
-            self.clean = self.clean[...,
-                self.window['x0']:self.window['x0'] + self.window['x_window'],
-                self.window['y0']:self.window['y0'] + self.window['y_window']]
         self.peak = peak
         
         ws_denoising_list, self.denoising_model = Noise2Self(
@@ -86,13 +80,6 @@ class Denoise:
                 self.window['y0']:self.window['y0'] + self.window['y_window']]
         else:
             denoised_txy += self.ws_denoising.bg_movie_txy
-        
-        if self.clean is not None:
-            mse_t = np.mean(np.square(self.clean - denoised_txy), axis=tuple(range(1, self.clean.ndim)))
-            psnr_t = 10 * np.log10(self.peak * self.peak / mse_t)
-            np.save(
-                os.path.join(self.output_dir, 'psnr_t.npy'),
-                psnr_t)
 
         np.save(
             os.path.join(self.output_dir, f'denoised_tyx.npy'),

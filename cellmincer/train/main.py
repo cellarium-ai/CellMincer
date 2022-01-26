@@ -24,8 +24,6 @@ from cellmincer.util import \
     generate_batch_indices, \
     generate_occluded_training_data, \
     get_noise2self_loss
-
-import neptune.new as neptune
     
 class Train:
     def __init__(
@@ -84,9 +82,6 @@ class Train:
             lr_params=self.train_config['lr_params'],
             n_iters=self.train_config['n_iters'])
         
-        self.neptune_enabled = config['neptune']['enabled']
-        neptune_run_id = None
-        
         using_checkpoint = checkpoint is not None and os.path.exists(checkpoint)
         if using_checkpoint:
             logging.info('Attempting to extract checkpoint...')
@@ -111,84 +106,11 @@ class Train:
                 os.path.join(self.output_dir, 'checkpoint/optim.pt')))
             self.sched.load_state_dict(torch.load(
                 os.path.join(self.output_dir, 'checkpoint/sched.pt')))
-            
-            if self.neptune_enabled:
-                with open(os.path.join(self.output_dir, 'checkpoint/neptune_run_id.txt'), 'r') as f:
-                    neptune_run_id = f.read()
-        
-        self.insight = config['insight']
-        if self.insight['enabled']:
-            self.bg_paths = [os.path.join(dataset, 'trend.npy') for dataset in inputs]
-            self.clean_paths = [os.path.join(dataset, 'clean.npy') for dataset in inputs]
-        
-        # initialize neptune.ai
-        if self.neptune_enabled:
-            self.neptune_run = neptune.init(
-                api_token=config['neptune']['api_token'],
-                project=config['neptune']['project'],
-                run=neptune_run_id,
-                name=config['neptune'].get('name', None),
-                tags=config['neptune']['tags'])
-            self.neptune_run['config'] = config
-            self.neptune_run['datasets'] = inputs
-            
-            logging.info(f'Neptune.ai -- logging to {self.neptune_run.get_run_url()}')
 
-    def evaluate_insight(self, i_iter: int):
-        self.denoising_model.eval()
-        for i_dataset, (ws_denoising, bg_path, clean_path) in enumerate(zip(self.ws_denoising_list, self.bg_paths, self.clean_paths)):
-            denoised = crop_center(
-                self.denoising_model.denoise_movie(ws_denoising).numpy(),
-                target_width=ws_denoising.width,
-                target_height=ws_denoising.height)
-            
-            denoised *= ws_denoising.cached_features.norm_scale
-            denoised += np.load(bg_path)
-
-            clean = np.load(clean_path)
-            
-            # compute psnr
-            mse_t = np.mean(np.square(clean - denoised), axis=tuple(range(1, clean.ndim)))
-            psnr_t = 10 * np.log10(self.insight['peak'] * self.insight['peak'] / mse_t)
-            
-            # compute ssim
-            mssim_t = []
-            S_accumulate = np.zeros(clean.shape[1:])
-            for clean_frame, denoised_frame in zip(clean, denoised):
-                mssim, S = skimage.metrics.structural_similarity(
-                    clean_frame,
-                    denoised_frame,
-                    gaussian_weights=True,
-                    full=True,
-                    data_range=self.insight['peak'])
-                mssim_t.append(mssim)
-                S_accumulate += (S + 1) / 2
-            
-            if self.neptune_enabled:
-                self.neptune_run['metrics/iter'].log(i_iter + 1)
-                
-                self.neptune_run[f'metrics/{i_dataset}/psnr/mean'].log(np.mean(psnr_t))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/var'].log(np.var(psnr_t))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/median'].log(np.median(psnr_t))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/q1'].log(np.quantile(psnr_t, 0.25))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/q3'].log(np.quantile(psnr_t, 0.75))
-                
-                self.neptune_run[f'metrics/{i_dataset}/ssim/mean'].log(np.mean(mssim_t))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/var'].log(np.var(mssim_t))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/median'].log(np.median(mssim_t))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/q1'].log(np.quantile(mssim_t, 0.25))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/q3'].log(np.quantile(mssim_t, 0.75))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/map'].log(neptune.types.File.as_image(S_accumulate / len(mssim_t)))
-        
     def save_checkpoint(self, checkpoint_path: str, index: int):
         # update checkpoint
         with open(os.path.join(self.output_dir, 'checkpoint/ckpt_index.txt'), 'w') as f:
             f.write(str(index))
-        
-        # write neptune run id
-        if self.neptune_enabled:
-            with open(os.path.join(self.output_dir, 'checkpoint/neptune_run_id.txt'), 'w') as f:
-                f.write(self.neptune_run._short_id)
         
         # write model/training state
         torch.save(
@@ -200,9 +122,6 @@ class Train:
         torch.save(
             self.sched.state_dict(),
             os.path.join(self.output_dir, 'checkpoint/sched.pt'))
-
-        if self.neptune_enabled:
-            self.neptune_run[f'model_ckpt/{index}'].upload(os.path.join(self.output_dir, 'checkpoint/model.pt'))
         
         # tarball checkpoint
         checkpoint_path_tmp = os.path.join(self.output_dir, 'checkpoint_tmp.tar.gz')
@@ -214,9 +133,6 @@ class Train:
         torch.save(
             self.denoising_model.state_dict(),
             os.path.join(self.output_dir, f'model.pt'))
-        
-        if self.neptune_enabled:
-            self.neptune_run['final'].upload(os.path.join(self.output_dir, 'model.pt'))
 
     def run(self):
         logging.info('Training model...')
@@ -304,13 +220,6 @@ class Train:
             self.sched.step()
             
             last_train_loss = np.mean(c_total_loss_hist)
-            if self.neptune_enabled:
-                self.neptune_run['train/iter'].log(i_iter + 1)
-                self.neptune_run['train/total_loss'].log(last_train_loss)
-                self.neptune_run['train/rec_loss'].log(np.mean(c_rec_loss_hist))
-                if self.enable_continuity_reg:
-                    self.neptune_run['train/reg_loss'].log(np.mean(c_reg_loss_hist))
-                self.neptune_run['train/lr'].log(current_lr)
 
             # validate with n2s loss on select frames
             if (i_iter + 1) % self.train_config['validate_every'] == 0:
@@ -360,14 +269,6 @@ class Train:
                         c_val_loss.append(loss_dict['rec_loss'].item())
 
                 last_val_loss = np.mean(c_rec_loss_hist)
-                if self.neptune_enabled:
-                    self.neptune_run['val/iter'].log(i_iter + 1)
-                    self.neptune_run['val/loss'].log(last_val_loss)
-
-            # compute performance metrics with clean reference
-            if self.insight['enabled'] and (i_iter + 1) % self.insight['evaluate_every'] == 0:
-                logging.info(f'Evaluating model output against clean reference')
-                self.evaluate_insight(i_iter)
 
             # log training status
             if (i_iter + 1) % self.train_config['log_every'] == 0:
