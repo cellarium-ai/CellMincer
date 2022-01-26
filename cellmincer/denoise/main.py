@@ -66,6 +66,10 @@ class Denoise:
                 outputdict={'-vcodec': 'rawvideo', '-pix_fmt': 'yuv420p', '-r': '60'})
             
             i_start, i_end = self.avi.get('range', (0, len(denoised_norm_txy)))
+            if i_start < 0:
+                i_start += len(denoised_norm_txy)
+            if i_end < 0:
+                i_end += len(denoised_norm_txy)
             
             logging.info(f'Writing .avi with sigma range={self.avi["sigma_range"]}; frames=[{i_start}, {i_end}]')
 
