@@ -53,13 +53,4 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         required=True,
         help='Preprocessing configuration YAML.')
 
-    subparser.add_argument(
-        '--clean',
-        nargs=None,
-        type=str,
-        dest='clean_ref',
-        default=None,
-        required=False,
-        help='Clean reference movie.')
-
     return subparsers

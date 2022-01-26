@@ -3,7 +3,7 @@
 # BRANCH=bw-oopify
 # BUCKET_PATH=gs://fc-secure-94c57cb0-5039-4596-9a9e-03c1cde4cc15/cellmincer_tarballs
 BRANCH=feature
-BUCKET_PATH=gs://fc-secure-9289bfef-e5cb-493a-83d5-e604cd429e39/cellmincer_configs
+BUCKET_PATH=gs://fc-secure-9289bfef-e5cb-493a-83d5-e604cd429e39/CellMincer
 PWD=$(pwd)
 TMP_PATH=${PWD}/__tmp__
 
