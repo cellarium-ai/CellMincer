@@ -72,4 +72,7 @@ class CLI(AbstractCLI):
             input_dir=args.input_dir,
             output_dir=args.output_dir,
             model_state=args.model,
-            config=config).run()
+            config=config,
+            avi_enabled=args.avi_enabled,
+            avi_frames=args.avi_frames,
+            avi_sigma=args.avi_sigma).run()

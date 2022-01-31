@@ -52,5 +52,29 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         default=None,
         required=True,
         help='Denoising configuration YAML.')
+    
+    subparser.add_argument(
+        '--avi_frames',
+        nargs=2,
+        type=int,
+        dest='avi_frames',
+        default=None,
+        required=False,
+        help='Range of frames to output as .AVI.')
+    
+    subparser.add_argument(
+        '--avi_sigma',
+        nargs=2,
+        type=int,
+        dest='avi_sigma',
+        default=None,
+        required=False,
+        help='Pixel intensity clip range of .AVI, as stds of intensity distribution.')
+    
+    subparser.add_argument(
+        '--no-avi',
+        dest='avi_enabled',
+        action='store_false',
+        help='Skip writing .AVI.')
 
     return subparsers
