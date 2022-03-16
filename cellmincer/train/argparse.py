@@ -62,13 +62,4 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         required=False,
         help='Checkpoint file for resuming training.')
 
-    subparser.add_argument(
-        '--temp',
-        nargs=None,
-        type=str,
-        dest='temp',
-        default=None,
-        required=False,
-        help='Directory for large temporary training files.')
-
     return subparsers

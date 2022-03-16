@@ -34,8 +34,7 @@ class Train:
             output_dir: str,
             config: dict,
             pretrain: Optional[str] = None,
-            checkpoint: Optional[str] = None,
-            temp: Optional[str] = None):
+            checkpoint: Optional[str] = None):
 
         # compute training padding with maximal output/input receptive field ratio
         output_min_size = np.arange(config['train']['output_min_size_lo'], config['train']['output_min_size_hi'] + 1)
