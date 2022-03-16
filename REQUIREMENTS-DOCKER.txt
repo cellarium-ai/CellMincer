@@ -9,5 +9,5 @@ pyyaml
 scikit-image
 scikit-learn
 scikit-video
-neptune-client==0.9.16
+neptune-client>=0.14.2
 cosine_annealing_warmup @ https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/tarball/master#egg=cosine_annealing_warmup
