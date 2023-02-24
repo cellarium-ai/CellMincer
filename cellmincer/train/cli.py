@@ -46,8 +46,8 @@ class CLI(AbstractCLI):
 
         try:
             with open(args.config, 'r') as f:
-                config = yaml.load(f, Loader=yaml.FullLoader)
-        except IOError:
+                config = yaml.safe_load(f)
+        except yaml.YAMLError:
             raise RuntimeError(f'Error loading the input YAML file {args.config}!')
         
         # Send logging messages to stdout as well as a log file.

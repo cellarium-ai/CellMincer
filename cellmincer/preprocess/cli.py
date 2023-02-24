@@ -42,14 +42,14 @@ class CLI(AbstractCLI):
         '''Run the main tool functionality on parsed arguments.'''
         try:
             with open(args.manifest, 'r') as f:
-                manifest = yaml.load(f, Loader=yaml.FullLoader)
-        except IOError:
+                manifest = yaml.safe_load(f)
+        except yaml.YAMLError:
             raise RuntimeError(f'Error loading the manifest YAML file {args.manifest}!')
 
         try:
             with open(args.config, 'r') as f:
-                config = yaml.load(f, Loader=yaml.FullLoader)
-        except IOError:
+                config = yaml.safe_load(f)
+        except yaml.YAMLError:
             raise RuntimeError(f'Error loading the config YAML file {args.config}!')
         
         # Send logging messages to stdout as well as a log file.

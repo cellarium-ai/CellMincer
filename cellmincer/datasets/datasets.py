@@ -34,7 +34,8 @@ def movie_collate_fn(data):
         'padded_diff': torch.cat([item['padded_diff'] for item in data], dim=0),
         'features': torch.cat([item['features'] for item in data], dim=0),
         'trend_mean_feature_index': data[0]['trend_mean_feature_index'],
-        'detrended_std_feature_index': data[0]['detrended_std_feature_index']}
+        'detrended_std_feature_index': data[0]['detrended_std_feature_index'],
+        'over_pivot': np.array([item['over_pivot'] for item in data])}
 
 class MovieDataset(Dataset):
     def __init__(
@@ -45,7 +46,8 @@ class MovieDataset(Dataset):
             x_padding: int,
             y_padding: int,
             t_total: int,
-            length: int):
+            length: int,
+            oversample: Optional[dict] = None):
         self.ws_denoising_list = ws_denoising_list
         self.x_window = x_window
         self.y_window = y_window
@@ -53,20 +55,71 @@ class MovieDataset(Dataset):
         self.y_padding = y_padding
         self.t_total = t_total
         self.length = length
+        
+        if oversample is None:
+            self.pivot = None
+        else:
+            self.pivot = []
+            for ws_denoising in self.ws_denoising_list:
+                intensity = []
+
+                for _ in range(oversample['n_sample']):
+                    n_frames, width, height = ws_denoising.shape
+                    t0 = np.random.randint(n_frames)
+                    x0 = np.random.randint(width - self.x_window + 1)
+                    y0 = np.random.randint(height - self.y_window + 1)
+
+                    crop_xy = ws_denoising.get_movie_slice(
+                        include_bg=False,
+                        t_begin=t0,
+                        t_length=1,
+                        x0=x0,
+                        y0=y0,
+                        x_window=self.x_window,
+                        y_window=self.y_window,
+                        x_padding=0,
+                        y_padding=0)['diff'].squeeze()
+                    intensity.append(crop_xy.mean())
+
+                intensity.sort()
+                ds_pivot = intensity[-int(oversample['n_sample'] * oversample['pivot'])]
+                self.pivot.append(ds_pivot)
 
     def __len__(self):
         return self.length
         
     def __getitem__(self, item):
         movie_idx = item % len(self.ws_denoising_list)
-        return self._generate_random_slice(movie_idx)
 
-    def _generate_random_slice(self, movie_idx):
-        n_frames, width, height = self.ws_denoising_list[movie_idx].shape
-        t0 = np.random.randint(n_frames - self.t_total + 1)
-        x0 = np.random.randint(width - self.x_window + 1)
-        y0 = np.random.randint(height - self.y_window + 1)
-        diff_movie_slice_1txy = self.ws_denoising_list[movie_idx].get_movie_slice(
+        # ignored in sampling if oversampling is not in effect
+        over_pivot = item * 2 < self.length if self.pivot is not None else None
+        return self._generate_random_slice(movie_idx, over_pivot)
+
+    def _generate_random_slice(self, movie_idx, over_pivot):
+        ws_denoising = self.ws_denoising_list[movie_idx]
+
+        n_frames, width, height = ws_denoising.shape
+
+        while True:
+            t0 = np.random.randint(n_frames - self.t_total + 1)
+            x0 = np.random.randint(width - self.x_window + 1)
+            y0 = np.random.randint(height - self.y_window + 1)
+            
+            crop_xy = ws_denoising.get_movie_slice(
+                include_bg=False,
+                t_begin=t0 + self.t_total // 2,
+                t_length=1,
+                x0=x0,
+                y0=y0,
+                x_window=self.x_window,
+                y_window=self.y_window,
+                x_padding=0,
+                y_padding=0)['diff'].squeeze()
+            
+            if over_pivot is None or over_pivot ^ (crop_xy.mean() < self.pivot[movie_idx]):
+                break
+
+        diff_movie_slice_1txy = ws_denoising.get_movie_slice(
             include_bg=False,
             t_begin=t0,
             t_length=self.t_total,
@@ -76,21 +129,22 @@ class MovieDataset(Dataset):
             y_window=self.y_window,
             x_padding=self.x_padding,
             y_padding=self.y_padding)['diff']
-        feature_slice_list_1fxy = self.ws_denoising_list[movie_idx].get_feature_slice(
+        feature_slice_list_1fxy = ws_denoising.get_feature_slice(
             x0=x0,
             y0=y0,
             x_window=self.x_window,
             y_window=self.y_window,
             x_padding=self.x_padding,
             y_padding=self.y_padding)
-        trend_mean_feature_index = self.ws_denoising_list[movie_idx].cached_features.get_feature_index('trend_mean_0')
-        detrended_std_feature_index = self.ws_denoising_list[movie_idx].cached_features.get_feature_index('detrended_std_0')
-        
+        trend_mean_feature_index = ws_denoising.cached_features.get_feature_index('trend_mean_0')
+        detrended_std_feature_index = ws_denoising.cached_features.get_feature_index('detrended_std_0')
+
         return {
             'padded_diff': diff_movie_slice_1txy,
             'features': feature_slice_list_1fxy,
             'trend_mean_feature_index': trend_mean_feature_index,
-            'detrended_std_feature_index': detrended_std_feature_index}
+            'detrended_std_feature_index': detrended_std_feature_index,
+            'over_pivot': over_pivot}
 
 class MovieDataModule(LightningDataModule):
     def __init__(
@@ -102,15 +156,9 @@ class MovieDataModule(LightningDataModule):
             y_padding: int,
             t_total: int,
             n_batch: int,
-            length: int):
-        # self.ws_denoising_list = ws_denoising_list
-        # self.x_window = x_window
-        # self.y_window = y_window
-        # self.x_padding = x_padding
-        # self.y_padding = y_padding
-        # self.t_total = t_total
+            length: int,
+            oversample: Optional[dict] = None):
         self.n_batch = n_batch
-        # self.length = length
         self.dataset = MovieDataset(
             ws_denoising_list=ws_denoising_list,
             x_window=x_window,
@@ -118,7 +166,8 @@ class MovieDataModule(LightningDataModule):
             x_padding=x_padding,
             y_padding=y_padding,
             t_total=t_total,
-            length=length)
+            length=length,
+            oversample=oversample)
         self.n_global_features = ws_denoising_list[0].n_global_features
 
     def prepare_data(self):
@@ -126,14 +175,6 @@ class MovieDataModule(LightningDataModule):
     
     def setup(self, stage: Optional[str] = None):
         pass
-        # self.dataset = MovieDataset(
-        #     ws_denoising_list=self.ws_denoising_list,
-        #     x_window=self.x_window,
-        #     y_window=self.y_window,
-        #     x_padding=self.x_padding,
-        #     y_padding=self.y_padding,
-        #     t_total=self.t_total,
-        #     length=self.length)
 
     def train_dataloader(self) -> "torch.dataloader":
         return DataLoader(
@@ -143,7 +184,7 @@ class MovieDataModule(LightningDataModule):
             num_workers=8,
             pin_memory=True,
             drop_last=True,
-            shuffle=True)
+            shuffle=False)
 
     def val_dataloader(self) -> "torch.dataloader":
         pass
@@ -203,4 +244,5 @@ def build_datamodule(
         y_padding=train_config['y_padding'],
         t_total=get_temporal_order_from_config(model_config) + train_config['t_tandem'] - 1,
         n_batch=train_config['n_batch'],
-        length=gpus * train_config['n_batch'])
+        length=gpus * train_config['n_batch'],
+        oversample=train_config.get('oversample', None))

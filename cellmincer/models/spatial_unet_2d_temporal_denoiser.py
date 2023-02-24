@@ -251,10 +251,6 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
         return padding
 
 
-# Dataloader return movie slices
-# In model training step you do occlusion of pixel
-#
-
 class PlSpatialUnet2dTemporalDenoiser(LightningModule):
     def __init__(
             self,
@@ -267,9 +263,10 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
         self.neptune_run_id = None
         self.denoising_model = nn.SyncBatchNorm.convert_sync_batchnorm(SpatialUnet2dTemporalDenoiser(model_config))
 
-    def forward(self,
-                x: torch.Tensor,
-                features: Optional[torch.Tensor] = None):
+    def forward(
+            self,
+            x: torch.Tensor,
+            features: Optional[torch.Tensor] = None):
         return crop_center(
             self.denoising_model(x=x, features=features),
             target_width=self.hparams.train_config['x_window'],
@@ -283,7 +280,8 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
         loss_dict = self._compute_noise2self_loss(
             denoised_output_ntxy,
             expected_output_ntxy=occluded_batch['middle_frames'],
-            occlusion_masks=occluded_batch['occlusion_masks'])
+            occlusion_masks=occluded_batch['occlusion_masks'],
+            over_pivot=batch['over_pivot'])
 
         loss = loss_dict["rec_loss"]
         self.log('train/loss', loss.item())
@@ -306,10 +304,12 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
 
         return [optim], [sched]
 
-    def _compute_noise2self_loss(self,
+    def _compute_noise2self_loss(
+            self,
             denoised_output_ntxy,
             expected_output_ntxy,
-            occlusion_masks):
+            occlusion_masks,
+            over_pivot):
         """Calculates the loss of a Noise2Self predictor on a given minibatch."""
 
         # iterate over the middle frames and accumulate loss
@@ -320,11 +320,19 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
         total_pixels = x_window * y_window
         t_tandem = denoised_output_ntxy.shape[1]
 
-        # reconstruction losses
+        # reweighting for oversampling bias, if applicable
+        if self.hparams.train_config.get('oversample', None) is not None:
+            reweight_n = np.where(over_pivot, 0.01 / 0.5, 0.99 / 0.5)
+        else:
+            reweight_n = np.ones_like(over_pivot)
+        reweight_n = reweight_n.astype('float32')
+        reweight_n = torch.from_numpy(reweight_n).to(self.device)
+
         total_masked_pixels_t = occlusion_masks.sum(dim=(0, 2, 3))
         loss_scale_t = 1. / (t_tandem * (const.EPS + total_masked_pixels_t))
-        loss_scale_ntxy = loss_scale_t[None, :, None, None]
+        loss_scale_ntxy = loss_scale_t[None, :, None, None] * reweight_n[:, None, None, None]
 
+        # reconstruction losses
         err_ntxy = occlusion_masks * (denoised_output_ntxy - expected_output_ntxy)
         rec_loss = _compute_lp_loss(_err=err_ntxy, _norm_p=self.hparams.train_config['norm_p'], _scale=loss_scale_ntxy)
 

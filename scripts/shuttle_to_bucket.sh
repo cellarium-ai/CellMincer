@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BRANCH=ld-refactoring
-BRANCH=bw-clipping
+BRANCH=bw-imbalance
 BUCKET_PATH=gs://fc-secure-94c57cb0-5039-4596-9a9e-03c1cde4cc15/cellmincer_tarballs
 PWD=$(pwd)
 TMP_PATH=${PWD}/__tmp__
@@ -19,8 +19,8 @@ cd ..
 rm -rf ./CellMincer
 mv ./CellMincer_tmp ./CellMincer
 mv ./CellMincer/REQUIREMENTS-FREEZE.txt ./CellMincer/REQUIREMENTS.txt
-tar --exclude-vcs -cvzf ./CellMincer-lightning.tar.gz ./CellMincer
-gsutil cp ./CellMincer-lightning.tar.gz ${BUCKET_PATH}
+tar --exclude-vcs -cvzf ./CellMincer-lightning-imba.tar.gz ./CellMincer
+gsutil cp ./CellMincer-lightning-imba.tar.gz ${BUCKET_PATH}
 cd ${PWD}
 rm -rf ${TMP_PATH}
 
