@@ -261,6 +261,8 @@ class OptopatchDenoisingWorkspace:
         self.padded_width = self.width + 2 * x_padding
         self.padded_height = self.height + 2 * y_padding
         
+        self.tempfiles = []
+        
         assert padding_mode in ('reflect', 'constant')
 
         # pad and cache the features
@@ -304,6 +306,7 @@ class OptopatchDenoisingWorkspace:
                 dtype=padded_scaled_diff_movie_1txy.dtype,
                 mode='r',
                 shape=padded_scaled_diff_movie_1txy.shape)
+            self.tempfiles.append(fname)
         else:
             logging.info('Memory map disabled; retaining array in memory...')
             self.padded_scaled_diff_movie_1txy = padded_scaled_diff_movie_1txy

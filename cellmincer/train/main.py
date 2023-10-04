@@ -19,7 +19,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import NeptuneLogger
 
-from cellmincer.datasets import build_datamodule
+from cellmincer.datasets import build_datamodule, wipe_temp_files
 
 from cellmincer.models import \
     init_model, \
@@ -35,14 +35,14 @@ import neptune.new as neptune
 class Train:
     def __init__(
             self,
-            inputs: List[str],
+            datasets: List[str],
             output_dir: str,
             config: dict,
             gpus: int,
             use_memmap: bool,
             pretrain: Optional[str] = None,
-            checkpoint: Optional[str] = None,
-            checkpoint_start: Optional[str] = None):
+            resume: Optional[str] = None,
+            checkpoint: Optional[str] = None):
         
         self.model = None
         if pretrain:
@@ -56,29 +56,27 @@ class Train:
         
         # if continuing from checkpoint
         self.ckpt_path = None
-        if checkpoint_start is not None and os.path.exists(checkpoint_start):
+        if resume is not None and os.path.exists(resume):
             try:
-                resume_model = load_model_from_checkpoint(
+                self.model = load_model_from_checkpoint(
                     model_type=config['model']['type'],
-                    ckpt_path=checkpoint_start)
-                self.model = resume_model
-                self.ckpt_path = checkpoint_start
+                    ckpt_path=resume)
+                self.ckpt_path = resume
                 logging.info('Successfully loaded restarted checkpoint.')
             except EOFError:
-                logging.warning('Bad checkpoint; ignoring checkpointed restart state.')
+                logging.warning('Bad checkpoint; ignoring resume state.')
                 pass
         
         # if continuing from checkpoint
         if checkpoint is not None and os.path.exists(checkpoint):
             try:
-                resume_model = load_model_from_checkpoint(
+                self.model = load_model_from_checkpoint(
                     model_type=config['model']['type'],
                     ckpt_path=checkpoint)
-                self.model = resume_model
                 self.ckpt_path = checkpoint
                 logging.info('Successfully loaded checkpoint.')
             except EOFError:
-                logging.warning('Bad checkpoint; ignoring checkpointed state. Expected behavior when Terra first initializes training.')
+                logging.warning('Bad checkpoint; ignoring checkpointed state. Expected behavior when first initialized.')
                 pass
         
         if self.model:
@@ -97,7 +95,7 @@ class Train:
             train_config['x_padding'] = train_config['y_padding'] = train_padding[best_train]
             
         self.movie_dm = build_datamodule(
-            datasets=inputs,
+            datasets=datasets,
             model_config=config['model'],
             train_config=train_config,
             gpus=gpus,
@@ -112,8 +110,7 @@ class Train:
                 train_config=train_config)
         
         self.output_dir = output_dir
-        if not os.path.exists(self.output_dir):
-            os.mkdir(self.output_dir)
+        os.makedirs(self.output_dir, exist_ok=True)
         
         self.neptune_enabled = config['neptune']['enabled']
         pl_logger = True
@@ -134,7 +131,7 @@ class Train:
                     api_key=config['neptune']['api_token'],
                     project=config['neptune']['project'],
                     tags=config['neptune']['tags'])
-                pl_logger.experiment['datasets'] = inputs
+                pl_logger.experiment['datasets'] = datasets
         else:
             logging.info('Skipping Neptune initialization.')
 
@@ -146,57 +143,6 @@ class Train:
             # TODO experiment with these settings because docs are ambiguous
             callbacks=[ModelCheckpoint(dirpath=self.output_dir, save_last=True)],
             logger=pl_logger)
-        
-        self.insight = config['insight']
-        if self.insight['enabled']:
-            self.bg_paths = [os.path.join(dataset, 'trend.npy') for dataset in inputs]
-            self.clean_paths = [os.path.join(dataset, 'clean.npy') for dataset in inputs]
-
-    def evaluate_insight(self, i_iter: int):
-        self.denoising_model.eval()
-        for i_dataset, (ws_denoising, bg_path, clean_path) in enumerate(zip(self.ws_denoising_list, self.bg_paths, self.clean_paths)):
-            denoised = crop_center(
-                self.denoising_model.denoise_movie(ws_denoising).numpy(),
-                target_width=ws_denoising.width,
-                target_height=ws_denoising.height)
-            
-            denoised *= ws_denoising.cached_features.norm_scale
-            denoised += np.load(bg_path)
-
-            clean = np.load(clean_path)
-            
-            # compute psnr
-            mse_t = np.mean(np.square(clean - denoised), axis=tuple(range(1, clean.ndim)))
-            psnr_t = 10 * np.log10(self.insight['peak'] * self.insight['peak'] / mse_t)
-            
-            # compute ssim
-            mssim_t = []
-            S_accumulate = np.zeros(clean.shape[1:])
-            for clean_frame, denoised_frame in zip(clean, denoised):
-                mssim, S = skimage.metrics.structural_similarity(
-                    clean_frame,
-                    denoised_frame,
-                    gaussian_weights=True,
-                    full=True,
-                    data_range=self.insight['peak'])
-                mssim_t.append(mssim)
-                S_accumulate += (S + 1) / 2
-            
-            if self.neptune_enabled:
-                self.neptune_run['metrics/iter'].log(i_iter + 1)
-                
-                self.neptune_run[f'metrics/{i_dataset}/psnr/mean'].log(np.mean(psnr_t))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/var'].log(np.var(psnr_t))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/median'].log(np.median(psnr_t))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/q1'].log(np.quantile(psnr_t, 0.25))
-                self.neptune_run[f'metrics/{i_dataset}/psnr/q3'].log(np.quantile(psnr_t, 0.75))
-                
-                self.neptune_run[f'metrics/{i_dataset}/ssim/mean'].log(np.mean(mssim_t))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/var'].log(np.var(mssim_t))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/median'].log(np.median(mssim_t))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/q1'].log(np.quantile(mssim_t, 0.25))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/q3'].log(np.quantile(mssim_t, 0.75))
-                self.neptune_run[f'metrics/{i_dataset}/ssim/map'].log(neptune.types.File.as_image(S_accumulate / len(mssim_t)))
 
     def run(self):
         logging.info('Training model...')
@@ -210,3 +156,6 @@ class Train:
         logging.info('Training complete; saving model...')
         if self.neptune_enabled:
             self.model.logger.experiment['final'].upload(os.path.join(self.output_dir, 'last.ckpt'))
+        
+        # delete any temporary files generated as memory maps
+        wipe_temp_files(self.movie_dm)

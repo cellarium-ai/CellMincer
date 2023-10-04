@@ -22,27 +22,13 @@ class Preprocess:
             input_file: str,
             output_dir: str,
             manifest: dict,
-            config: dict,
-            clean_ref: Optional[str] = None):
+            config: dict):
         self.ws_base = Preprocess.ws_base_from_input_manifest(
             input_file=input_file,
             manifest=manifest)
         
-        if clean_ref:
-            self.ws_clean = Preprocess.ws_base_from_input_manifest(
-                input_file=clean_ref,
-                manifest=manifest)
-        else:
-            self.ws_clean = None
-        
         self.output_dir = output_dir
-        if not os.path.exists(self.output_dir):
-            logging.info(f'Creating output directory {self.output_dir}')
-            os.mkdir(self.output_dir)
-        self.plot_dir = os.path.join(output_dir, 'plots')
-        if not os.path.exists(self.plot_dir):
-            os.mkdir(self.plot_dir)
-        self.clean_ref = clean_ref
+        os.makedirs(self.output_dir, exist_ok=True)
         
         self.n_frames_per_segment = manifest['n_frames_per_segment']
         self.n_segments = manifest['n_segments']
@@ -55,6 +41,10 @@ class Preprocess:
         self.detrend_config = config['detrend']
         self.bfgs = config['bfgs']
         self.device = torch.device(config['device'])
+        
+        if self.dejitter_config['show_diagnostic_plots'] or self.ne_config['plot_example'] or self.detrend_config['plot_segments']:
+            self.plot_dir = os.path.join(self.output_dir, 'plots')
+            os.makedirs(self.plot_dir, exist_ok=True)
 
     def run(self):
         movie_txy = self.ws_base.movie_txy
@@ -87,14 +77,6 @@ class Preprocess:
         output_file = os.path.join(self.output_dir, 'noise_params.json')
         with open(output_file, 'w') as f:
             json.dump(noise_model_params, f)
-
-        # trimming and writing clean reference if exists
-        if self.ws_clean:
-            trimmed_clean_txy = np.concatenate([
-                self.get_trimmed_segment(self.ws_clean.movie_txy, i_segment)[1]
-                for i_segment in range(self.n_segments)])
-            output_file = os.path.join(self.output_dir, 'clean.npy')
-            np.save(output_file, trimmed_clean_txy)
             
         # writing active range mask if stim params provided
         if self.stim:

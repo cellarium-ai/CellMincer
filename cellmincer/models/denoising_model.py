@@ -10,6 +10,12 @@ from cellmincer.util.ws import OptopatchBaseWorkspace, OptopatchDenoisingWorkspa
 
 
 class DenoisingModel(pl.LightningModule):
+    '''
+    The base class for a CellMincer denoising model, extended from the standard PyTorch Lightning module.
+
+    It defines methods for denoising recordings of arbitrary lengths, as well as supplying its temporal window length and padding expectations for use in training and inference.
+    '''
+    
     def __init__(
             self,
             name: str,
@@ -26,10 +32,15 @@ class DenoisingModel(pl.LightningModule):
         self.t_order = t_order
 
     '''
-    Denoises the 'diff' movie segment in ws_denoising,
-    bounded by [t_begin, t_end) and windowed by (x0, y0, x_window, y_window).
+    Denoises the 'diff' movie segment in ws_denoising, bounded by [t_begin, t_end) and windowed by (x0, y0, x_window, y_window), returning a CPU tensor containing the denoised movie.
     
-    Returns a CPU tensor containing the denoised movie.
+    :param ws_denoising: The workspace containing the movie to denoise.
+    :param t_begin: The index of the first frame in the denoising segment (inclusive), defaults to 0.
+    :param t_end: The index of the last frame in the denoising segment (exclusive), defaults to the end of the movie.
+    :param x0: The x-coordinate of the top-left corner of the denoising window, defaults to 0.
+    :param y0: The y-coordinate of the top-left corner of the denoising window, defaults to 0.
+    :param x_window: The width of the denoising window, defaults to the full width.
+    :param y_window: The height of the denoising window, defaults to the full height.
     '''
     def denoise_movie(
             self,
@@ -43,13 +54,17 @@ class DenoisingModel(pl.LightningModule):
         raise NotImplementedError
 
     '''
-    Prints summary of network architecture.
+    Returns a summary of network architecture as a string representation.
+    
+    :param ws_denoising: The workspace containing the movie used as a sample input.
     '''
     def summary(self, ws_denoising: OptopatchDenoisingWorkspace):
         raise NotImplementedError
 
     '''
     Returns the padding size for an image dimension with given minimum output size.
+    
+    :param output_min_size: The minimum width or height expected as an output dimension.
     '''
     @staticmethod
     def get_window_padding(
@@ -58,14 +73,18 @@ class DenoisingModel(pl.LightningModule):
 
     '''
     Returns the temporal order of a model with given configuration.
+    
+    :param config: A dictionary containing the model parameters.
     '''
     @staticmethod
     def get_temporal_order_from_config(config: dict) -> int:
         raise NotImplementedError
 
     '''
-    Returns the padding size for an image dimension
-    with given minimum output size and model configuration.
+    Returns the padding size for an image dimension with given minimum output size and model configuration.
+    
+    :param config: A dictionary containing the model parameters.
+    :param output_min_size: The minimum width or height expected as an output dimension.
     '''
     @staticmethod
     def get_window_padding_from_config(

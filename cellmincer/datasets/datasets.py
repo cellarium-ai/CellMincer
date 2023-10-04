@@ -246,3 +246,11 @@ def build_datamodule(
         n_batch=train_config['n_batch'],
         length=gpus * train_config['n_batch'],
         oversample=train_config.get('oversample', None))
+
+def wipe_temp_files(movie_dm: MovieDataModule):
+    for ws_denoising in movie_dm.dataset.ws_denoising_list:
+        for tfile in ws_denoising.tempfiles:
+            try:
+                os.remove(tfile)
+            except FileNotFoundError:
+                pass

@@ -12,18 +12,18 @@ def add_subparser_args(subparsers: argparse) -> argparse:
 
     subparser = subparsers.add_parser(
         'denoise',
-        description='Denoises data with trained model.',
-        help='Denoises data with trained model.')
+        description='Denoises preprocessed data with trained model.',
+        help='Denoises preprocessed data with trained model.')
 
     subparser.add_argument(
-        '-i',
-        '--input-dir',
+        '-d',
+        '--dataset',
         nargs=None,
         type=str,
-        dest='input_dir',
+        dest='dataset',
         default=None,
         required=True,
-        help='Directory of CellMincer denoising assets.')
+        help='Preprocessed dataset directory of CellMincer assets.')
 
     subparser.add_argument(
         '-o',
@@ -42,7 +42,7 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         dest='model_ckpt',
         default=None,
         required=True,
-        help='Path to model checkpoint.')
+        help='Path to trained model checkpoint.')
     
     subparser.add_argument(
         '--type',
@@ -51,30 +51,30 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         dest='model_type',
         default=None,
         required=True,
-        help='Name of model class.')
+        help='Name of model class. Options: "spatial-unet-2d-temporal-denoiser"')
     
     subparser.add_argument(
-        '--avi_frames',
+        '--avi-frames',
         nargs=2,
         type=int,
         dest='avi_frames',
         default=None,
         required=False,
-        help='Range of frames to output as .AVI.')
+        help='Range of frames to output as .AVI, declared as start (inclusive) and end (exclusive).')
     
     subparser.add_argument(
-        '--avi_sigma',
+        '--avi-sigma',
         nargs=2,
         type=int,
         dest='avi_sigma',
         default=None,
         required=False,
-        help='Pixel intensity clip range of .AVI, as stds of intensity distribution.')
+        help='Pixel intensity clip range of .AVI, as z-scores of intensity distribution.')
     
     subparser.add_argument(
         '--no-avi',
         dest='avi_enabled',
         action='store_false',
-        help='Skip writing .AVI.')
+        help='Flag that skips writing .AVI.')
 
     return subparsers
