@@ -12,12 +12,13 @@ def add_subparser_args(subparsers: argparse) -> argparse:
 
     subparser = subparsers.add_parser(
         'preprocess',
-        description='Prepares raw dataset for training or denoising by detrending the data and computing global features.',
-        help='Prepares raw dataset for training or denoising by detrending the data and computing global features.')
+        description='Prepares raw dataset for training or denoising.',
+        help='Prepares raw dataset for training or denoising. This tool detrends the data and computes global features, writing all outputs to a dedicated output directory.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     subparser.add_argument(
         '-i',
-        '--input-file',
+        '--input',
         nargs=None,
         type=str,
         dest='input_file',

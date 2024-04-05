@@ -25,7 +25,7 @@ class CLI(AbstractCLI):
 
         # Ensure that if there's a tilde for $HOME in the file path, it works.
         try:
-            args.input_dir = os.path.expanduser(args.input_dir)
+            args.dataset = os.path.expanduser(args.dataset)
             if args.output_dir:
                 args.output_dir = os.path.expanduser(args.output_dir)
             else:
@@ -54,7 +54,7 @@ class CLI(AbstractCLI):
         
         # denoise data
         Denoise(
-            input_dir=args.input_dir,
+            dataset=args.dataset,
             output_dir=args.output_dir,
             model_ckpt=args.model_ckpt,
             model_type=args.model_type,

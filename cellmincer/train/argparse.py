@@ -13,7 +13,8 @@ def add_subparser_args(subparsers: argparse) -> argparse:
     subparser = subparsers.add_parser(
         'train',
         description='Trains Cellmincer denoising model.',
-        help='Trains Cellmincer denoising model.')
+        help='Trains Cellmincer denoising model. Checkpoints are regularly written to the output directory as `last.ckpt`.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     subparser.add_argument(
         '-d',

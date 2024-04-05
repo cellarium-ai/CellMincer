@@ -15,9 +15,10 @@ import torch
 import pandas as pd
 from typing import List, Optional, Tuple
 
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.loggers import NeptuneLogger
+from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
+from lightning.pytorch.strategies import DDPStrategy
+# from lightning.pytorch.loggers import NeptuneLogger
 
 from cellmincer.datasets import build_datamodule, wipe_temp_files
 
@@ -30,7 +31,7 @@ from cellmincer.util import \
     const, \
     crop_center
 
-import neptune.new as neptune
+# import neptune.new as neptune
     
 class Train:
     def __init__(
@@ -112,37 +113,35 @@ class Train:
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         
-        self.neptune_enabled = config['neptune']['enabled']
-        pl_logger = True
+#         self.neptune_enabled = config['neptune']['enabled']
+#         pl_logger = True
         
-        if self.neptune_enabled:
-            if self.model.neptune_run_id is not None:
-                logging.info('Reinitializing existing Neptune run...')
-                neptune_run = neptune.init(
-                    api_token=config['neptune']['api_token'],
-                    project=config['neptune']['project'],
-                    run=self.model.neptune_run_id,
-                    tags=config['neptune']['tags'],
-                    capture_hardware_metrics=False)
-                pl_logger = NeptuneLogger(run=neptune_run)
-            else:
-                logging.info('Initializing new Neptune run...')
-                pl_logger = NeptuneLogger(
-                    api_key=config['neptune']['api_token'],
-                    project=config['neptune']['project'],
-                    tags=config['neptune']['tags'])
-                pl_logger.experiment['datasets'] = datasets
-        else:
-            logging.info('Skipping Neptune initialization.')
+#         if self.neptune_enabled:
+#             if self.model.neptune_run_id is not None:
+#                 logging.info('Reinitializing existing Neptune run...')
+#                 neptune_run = neptune.init(
+#                     api_token=config['neptune']['api_token'],
+#                     project=config['neptune']['project'],
+#                     run=self.model.neptune_run_id,
+#                     tags=config['neptune']['tags'],
+#                     capture_hardware_metrics=False)
+#                 pl_logger = NeptuneLogger(run=neptune_run)
+#             else:
+#                 logging.info('Initializing new Neptune run...')
+#                 pl_logger = NeptuneLogger(
+#                     api_key=config['neptune']['api_token'],
+#                     project=config['neptune']['project'],
+#                     tags=config['neptune']['tags'])
+#                 pl_logger.experiment['datasets'] = datasets
+#         else:
+#             logging.info('Skipping Neptune initialization.')
 
         self.trainer = Trainer(
-            strategy='ddp',
-            gpus=gpus,
+            strategy=DDPStrategy(find_unused_parameters=True),
+            devices=gpus,
             max_epochs=train_config['n_iters'],
             default_root_dir=self.output_dir,
-            # TODO experiment with these settings because docs are ambiguous
-            callbacks=[ModelCheckpoint(dirpath=self.output_dir, save_last=True)],
-            logger=pl_logger)
+            callbacks=[ModelCheckpoint(dirpath=self.output_dir, save_last=True)])
 
     def run(self):
         logging.info('Training model...')
@@ -154,8 +153,8 @@ class Train:
 
         # save trained model
         logging.info('Training complete; saving model...')
-        if self.neptune_enabled:
-            self.model.logger.experiment['final'].upload(os.path.join(self.output_dir, 'last.ckpt'))
+        # if self.neptune_enabled:
+        #     self.model.logger.experiment['final'].upload(os.path.join(self.output_dir, 'last.ckpt'))
         
         # delete any temporary files generated as memory maps
         wipe_temp_files(self.movie_dm)

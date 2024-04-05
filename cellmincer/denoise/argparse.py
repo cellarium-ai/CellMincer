@@ -13,7 +13,8 @@ def add_subparser_args(subparsers: argparse) -> argparse:
     subparser = subparsers.add_parser(
         'denoise',
         description='Denoises preprocessed data with trained model.',
-        help='Denoises preprocessed data with trained model.')
+        help='Denoises preprocessed data with trained model. By default, both an original-scale and a detrended version of the denoised data are written, along with an .AVI movie file for visualization.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     subparser.add_argument(
         '-d',

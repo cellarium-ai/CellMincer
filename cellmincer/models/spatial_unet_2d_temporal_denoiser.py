@@ -3,9 +3,9 @@ import torch
 from torch import nn
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from pytorch_lightning import LightningModule
-from pytorch_lightning.loggers import NeptuneLogger
-from pytorch_lightning.loggers.base import DummyExperiment
+from lightning.pytorch import LightningModule
+# from lightning.pytorch.loggers import NeptuneLogger
+# from lightning.pytorch.loggers.base import DummyExperiment
 
 from torchinfo import summary
 
@@ -260,7 +260,7 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
         
         self.save_hyperparameters('model_config', 'train_config')
         
-        self.neptune_run_id = None
+        # self.neptune_run_id = None
         self.denoising_model = nn.SyncBatchNorm.convert_sync_batchnorm(SpatialUnet2dTemporalDenoiser(model_config))
 
     def forward(
@@ -284,9 +284,9 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
             over_pivot=batch['over_pivot'])
 
         loss = loss_dict["rec_loss"]
-        self.log('train/loss', loss.item())
-        if isinstance(self.logger.experiment, DummyExperiment):
-            self.logger.experiment['train/loss'].log(loss.item())
+        # self.log('train/loss', loss.item())
+        # if isinstance(self.logger.experiment, DummyExperiment):
+        #     self.logger.experiment['train/loss'].log(loss.item())
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx: int = -1) -> Any:
@@ -391,9 +391,9 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
             'middle_frames': middle_frames_ntxy,
             'occlusion_masks': occlusion_masks_ntxy}
     
-    def on_save_checkpoint(self, checkpoint):
-        if isinstance(self.logger, NeptuneLogger):
-            checkpoint['neptune_run_id'] = self.logger.run._short_id
+#     def on_save_checkpoint(self, checkpoint):
+#         if isinstance(self.logger, NeptuneLogger):
+#             checkpoint['neptune_run_id'] = self.logger.run._short_id
 
-    def on_load_checkpoint(self, checkpoint):
-        self.neptune_run_id = checkpoint.get('neptune_run_id', None)
+#     def on_load_checkpoint(self, checkpoint):
+#         self.neptune_run_id = checkpoint.get('neptune_run_id', None)

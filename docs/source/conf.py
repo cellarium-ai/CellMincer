@@ -38,3 +38,8 @@ exclude_patterns = ['**.ipynb_checkpoints']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+html_favicon = '_static/graphics/favicon.ico'
+
+html_css_files = [
+    # 'style/custom.css'
+]

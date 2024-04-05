@@ -23,7 +23,7 @@ from cellmincer.util import const, crop_center
 class Denoise:
     def __init__(
             self,
-            input_dir: str,
+            dataset: str,
             output_dir: str,
             model_ckpt: str,
             model_type: str,
@@ -41,7 +41,7 @@ class Denoise:
         self.model.to(const.DEFAULT_DEVICE)
         
         self.ws_denoising = build_ws_denoising(
-            dataset=input_dir,
+            dataset=dataset,
             model_config=self.model.hparams.model_config,
             device=torch.device('cuda'),
             use_memmap=False)

@@ -16,6 +16,7 @@ dejitter:
   stft_noverlap: 64
   stft_nperseg: 256
 detrend:
+  smoothing: none
   init_unc_decay_rate: 1.0
   max_iters_per_segment: 3
   plot_segments: false

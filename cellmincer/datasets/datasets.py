@@ -11,7 +11,7 @@ import torch
 from typing import List, Optional, Tuple, Union
 
 from torch.utils.data import Dataset, DataLoader
-from pytorch_lightning import LightningDataModule
+from lightning.pytorch import LightningDataModule
 
 from cellmincer.models import \
     DenoisingModel, \
@@ -48,6 +48,8 @@ class MovieDataset(Dataset):
             t_total: int,
             length: int,
             oversample: Optional[dict] = None):
+        super().__init__()
+        
         self.ws_denoising_list = ws_denoising_list
         self.x_window = x_window
         self.y_window = y_window
@@ -158,6 +160,8 @@ class MovieDataModule(LightningDataModule):
             n_batch: int,
             length: int,
             oversample: Optional[dict] = None):
+        super().__init__()
+        
         self.n_batch = n_batch
         self.dataset = MovieDataset(
             ws_denoising_list=ws_denoising_list,
@@ -187,7 +191,7 @@ class MovieDataModule(LightningDataModule):
             shuffle=False)
 
     def val_dataloader(self) -> "torch.dataloader":
-        pass
+        return []
 
 def build_ws_denoising(
         dataset: str,
