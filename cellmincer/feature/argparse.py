@@ -16,11 +16,11 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         help='Computes global feature map.')
 
     subparser.add_argument(
-        '-i',
-        '--input-dir',
+        '-d',
+        '--dataset',
         nargs=None,
         type=str,
-        dest='input_dir',
+        dest='dataset',
         default=None,
         required=True,
         help='Input directory.')

@@ -9,7 +9,6 @@ dejitter:
   detrending_method: stft
   detrending_order: 3
   enabled: false
-  ignore_first_n_frames: 100
   show_diagnostic_plots: false
   stft_lp_cutoff: 80.0
   stft_lp_slope: 0.25
@@ -19,7 +18,7 @@ detrend:
   smoothing: none
   init_unc_decay_rate: 1.0
   max_iters_per_segment: 3
-  plot_segments: false
+  plot_segments: true
   poly_order: 0
   trend_model: polynomial
 device: cuda
@@ -29,7 +28,7 @@ noise_estimation:
   plot_subsample: 1000
   stationarity_window: 10
 trim:
-  n_frames_fit_left: 150
-  n_frames_fit_right: 150
+  n_frames_fit_left: 100
+  n_frames_fit_right: 250
   trim_left: 0
   trim_right: 0

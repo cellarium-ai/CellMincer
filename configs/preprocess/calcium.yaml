@@ -9,7 +9,6 @@ dejitter:
   detrending_method: stft
   detrending_order: 3
   enabled: false
-  ignore_first_n_frames: 100
   show_diagnostic_plots: false
   stft_lp_cutoff: 80.0
   stft_lp_slope: 0.25
@@ -17,7 +16,6 @@ dejitter:
   stft_nperseg: 256
 detrend:
   smoothing: none
-  smoothing_window: 501
   init_unc_decay_rate: 1.0
   max_iters_per_segment: 3
   plot_segments: true

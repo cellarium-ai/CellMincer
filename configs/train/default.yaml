@@ -1,7 +1,3 @@
-insight:
-  enabled: false
-  evaluate_every: 500
-  peak: 65535
 model:
   occlude_padding: true
   padding_mode: reflect
@@ -16,20 +12,14 @@ model:
   spatial_unet_padding: false
   spatial_unet_readout_kernel_size: 1
   temporal_denoiser_activation: relu
-  temporal_denoiser_conv_channels: 32
+  temporal_denoiser_conv_channels: 64
   temporal_denoiser_hidden_dense_layer_dims:
   - 32
   temporal_denoiser_kernel_size: 5
   temporal_denoiser_n_conv_layers: 3
   type: spatial-unet-2d-temporal-denoiser
-neptune:
-  api_token: eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI0YzBlMThhNS05MzI0LTRhZDEtODIzYy02ZDg0YWMzMzgwNDIifQ==
-  enabled: false
-  project: cellarium/CELLMINCER
-  tags:
-  - prod
 train:
-  log_every: 100
+  importance: null
   loss_type: lp
   lr_params:
     max: 0.0001

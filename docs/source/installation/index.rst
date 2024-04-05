@@ -3,25 +3,29 @@
 Installation
 ============
 
-Currently, the only method of accessing CellMincer locally is to install it from source. We will update this guide when a ``pip`` version becomes available.
+Docker image
+----------------------
+
+A GPU-enabled docker image is available at
+
+<insert link to Google Container Repository>
 
 Installing from source
 ----------------------
 
-While not strictly required, initializing a dedicated environment for CellMincer via ``conda`` or ``venv`` may prevent dependency conflicts with your existing Python installation.
+We recommend installing CellMincer within a dedicated Python environment created via ``conda`` or ``venv`` to prevent potential dependency conflicts.
 
 Create a conda environment and activate it:
 
 .. code-block:: console
 
-  $ conda create -n cellmincer python=3.7
+  $ conda create -n cellmincer python=3.10
   $ conda activate cellmincer
 
-Clone this repository and install CellMincer (in editable ``-e`` mode):
+Install with ``pip`` from Git repository:
 
 .. code-block:: console
 
-   (cellmincer) $ git clone https://github.com/broadinstitute/CellMincer.git
-   (cellmincer) $ pip install -e CellMincer
+   (cellmincer) $ pip install git+https://github.com/broadinstitute/CellMincer.git
 
-Because CellMincer uses GPU computing for its neural networks, you may wish to confirm that your PyTorch installation recognizes your GPUs and the accompanying CUDA drivers.
+Because CellMincer uses GPU computing for both training on and denoising voltage imaging, you may wish to confirm that your machine has GPUs with appropriate drivers installed and is CUDA-enabled (e.g. check that ``torch.cuda.is_available()`` returns ``True``).

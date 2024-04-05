@@ -1,24 +1,22 @@
-import os
-
 import logging
-
+import numpy as np
+import os
 import pickle
 
-import numpy as np
-
 from cellmincer.util import OptopatchBaseWorkspace, OptopatchGlobalFeatureExtractor
+
 
 class Feature:
     def __init__(
             self,
-            input_dir: str,
+            dataset: str,
             use_active_range: bool):
         
-        self.input_dir = input_dir
-        input_file = os.path.join(input_dir, 'trend_subtracted.npy')
+        self.dataset = dataset
+        input_file = os.path.join(dataset, 'trend_subtracted.npy')
         self.ws_base = OptopatchBaseWorkspace.from_npy(input_file)
         
-        mask_file = os.path.join(input_dir, 'active_mask.npy')
+        mask_file = os.path.join(dataset, 'active_mask.npy')
         self.active_mask = np.load(mask_file) if os.path.exists(mask_file) else None
         
         self.use_active_range = use_active_range
@@ -32,5 +30,5 @@ class Feature:
             max_depth=1)
 
         logging.info('Writing features to output directory...')
-        with open(os.path.join(self.input_dir, 'features.pkl'), 'wb') as f:
+        with open(os.path.join(self.dataset, 'features.pkl'), 'wb') as f:
             pickle.dump(feature_extractor.features, f)

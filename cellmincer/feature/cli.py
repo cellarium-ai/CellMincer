@@ -23,7 +23,7 @@ class CLI(AbstractCLI):
 
         # Ensure that if there's a tilde for $HOME in the file path, it works.
         try:
-            args.input_dir = os.path.expanduser(args.input_dir)
+            args.dataset = os.path.expanduser(args.dataset)
         except TypeError:
             raise ValueError('Problem with provided input paths.')
 
@@ -45,5 +45,5 @@ class CLI(AbstractCLI):
                                       
         # compute global features
         Feature(
-            input_dir=args.input_dir,
+            dataset=args.dataset,
             use_active_range=args.active_range).run()
