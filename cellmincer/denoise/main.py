@@ -1,15 +1,9 @@
 import os
 import logging
-import pprint
-import time
-
-import json
-import pickle
 import tifffile
 
 from skvideo import io as skio
 from matplotlib.colors import Normalize
-import matplotlib.pylab as plt
 import numpy as np
 import torch
 from typing import List, Optional
@@ -18,7 +12,7 @@ from cellmincer.datasets import build_ws_denoising
 
 from cellmincer.models import load_model_from_checkpoint
 
-from cellmincer.util import const, crop_center
+from cellmincer.util import const
     
 class Denoise:
     def __init__(
@@ -60,7 +54,7 @@ class Denoise:
         denoised_txy *= self.ws_denoising.cached_features.norm_scale
         
         tifffile.imwrite(
-            os.path.join(self.output_dir, f'denoised_detrended_tyx.tif'),
+            os.path.join(self.output_dir, 'denoised_detrended_tyx.tif'),
             denoised_txy.transpose((0, 2, 1)))
 
         if self.avi_enabled:
@@ -70,7 +64,7 @@ class Denoise:
                 sigma_hi=self.avi_sigma[1])
 
             writer = skio.FFmpegWriter(
-                os.path.join(self.output_dir, f'denoised.avi'),
+                os.path.join(self.output_dir, 'denoised.avi'),
                 outputdict={'-vcodec': 'rawvideo', '-pix_fmt': 'yuv420p', '-r': '60'})
             
             i_start, i_end = self.avi_frames
@@ -88,7 +82,7 @@ class Denoise:
         denoised_txy += self.ws_denoising.bg_movie_txy
 
         tifffile.imwrite(
-            os.path.join(self.output_dir, f'denoised_tyx.tif'),
+            os.path.join(self.output_dir, 'denoised_tyx.tif'),
             denoised_txy.transpose((0, 2, 1)))
         logging.info('Denoising done.')
 

@@ -1,14 +1,10 @@
 import os
 
 import logging
-import pprint
-import time
 
 import pickle
 
 import numpy as np
-import torch
-from typing import Optional
 
 from cellmincer.util import OptopatchBaseWorkspace, OptopatchGlobalFeatureExtractor
 

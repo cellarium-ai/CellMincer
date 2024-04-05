@@ -5,7 +5,7 @@ import tempfile
 import torch
 import tifffile
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 from .utils import get_cosine_similarity_with_sequence_np
 from .features import OptopatchGlobalFeatureContainer

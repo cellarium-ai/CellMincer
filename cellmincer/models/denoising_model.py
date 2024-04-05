@@ -1,12 +1,11 @@
 import numpy as np
 import torch
-from torch import nn
 import pytorch_lightning as pl
 
 import logging
-from typing import Tuple, Union
+from typing import Union
 
-from cellmincer.util.ws import OptopatchBaseWorkspace, OptopatchDenoisingWorkspace
+from cellmincer.util.ws import OptopatchDenoisingWorkspace
 
 
 class DenoisingModel(pl.LightningModule):

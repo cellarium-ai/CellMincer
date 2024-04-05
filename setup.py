@@ -31,7 +31,7 @@ setuptools.setup(
       'Development Status :: 3 - Alpha',
       'Intended Audience :: Science/Research'
       'License :: OSI Approved :: BSD License',
-      'Programming Language :: Python :: 3.7',
+      'Programming Language :: Python :: 3.10',
       'Topic :: Scientific/Engineering',
     ],
     url='http://github.com/broadinstitute/CellMincer',
@@ -39,6 +39,14 @@ setuptools.setup(
     license='BSD (3-Clause)',
     packages=['cellmincer'],
     install_requires=install_requires,
+    extras_require={
+        'dev': [
+            'docs',
+            'lint',
+            'mypy',
+            'ruff',
+        ],
+    },
     entry_points={
         'console_scripts': ['cellmincer=cellmincer.cli.base_cli:main'],
     },

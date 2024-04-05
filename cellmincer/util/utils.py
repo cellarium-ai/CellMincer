@@ -1,14 +1,13 @@
-import os
-
 import numpy as np
 import torch
-from typing import Optional, Union, List, Tuple
+from typing import Optional, List, Tuple
 from bisect import bisect_left, bisect_right
 
-import torch
 from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
 
 from . import const
+
+from typing import Union
 
 import logging
 

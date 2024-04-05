@@ -1,10 +1,8 @@
 '''Command-line tool functionality for `cellmincer denoise`.'''
 
-import yaml
 import logging
 import os
 import sys
-from datetime import datetime
 
 from cellmincer.cli.base_cli import AbstractCLI
 from cellmincer.denoise.main import Denoise

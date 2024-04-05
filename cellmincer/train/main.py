@@ -1,24 +1,12 @@
 import os
 import logging
-import pprint
-import time
-from datetime import timedelta
 
-import json
-import pickle
-import tarfile
-
-import matplotlib.pylab as plt
 import numpy as np
-import skimage
-import torch
-import pandas as pd
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.strategies import DDPStrategy
-# from lightning.pytorch.loggers import NeptuneLogger
 
 from cellmincer.datasets import build_datamodule, wipe_temp_files
 
@@ -26,12 +14,6 @@ from cellmincer.models import \
     init_model, \
     get_window_padding_from_config, \
     load_model_from_checkpoint
-
-from cellmincer.util import \
-    const, \
-    crop_center
-
-# import neptune.new as neptune
     
 class Train:
     def __init__(
@@ -46,6 +28,8 @@ class Train:
             checkpoint: Optional[str] = None):
         
         self.model = None
+        
+        # if finetuning trained model
         if pretrain:
             try:
                 self.model = load_model_from_checkpoint(
@@ -55,7 +39,7 @@ class Train:
             except EOFError:
                 logging.warning('Bad checkpoint; ignoring pretrained state.')
         
-        # if continuing from checkpoint
+        # if resuming training from saved checkpoint
         self.ckpt_path = None
         if resume is not None and os.path.exists(resume):
             try:
@@ -68,7 +52,7 @@ class Train:
                 logging.warning('Bad checkpoint; ignoring resume state.')
                 pass
         
-        # if continuing from checkpoint
+        # if resuming training from preempted checkpoint
         if checkpoint is not None and os.path.exists(checkpoint):
             try:
                 self.model = load_model_from_checkpoint(
@@ -112,36 +96,14 @@ class Train:
         
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
-        
-#         self.neptune_enabled = config['neptune']['enabled']
-#         pl_logger = True
-        
-#         if self.neptune_enabled:
-#             if self.model.neptune_run_id is not None:
-#                 logging.info('Reinitializing existing Neptune run...')
-#                 neptune_run = neptune.init(
-#                     api_token=config['neptune']['api_token'],
-#                     project=config['neptune']['project'],
-#                     run=self.model.neptune_run_id,
-#                     tags=config['neptune']['tags'],
-#                     capture_hardware_metrics=False)
-#                 pl_logger = NeptuneLogger(run=neptune_run)
-#             else:
-#                 logging.info('Initializing new Neptune run...')
-#                 pl_logger = NeptuneLogger(
-#                     api_key=config['neptune']['api_token'],
-#                     project=config['neptune']['project'],
-#                     tags=config['neptune']['tags'])
-#                 pl_logger.experiment['datasets'] = datasets
-#         else:
-#             logging.info('Skipping Neptune initialization.')
 
         self.trainer = Trainer(
             strategy=DDPStrategy(find_unused_parameters=True),
             devices=gpus,
             max_epochs=train_config['n_iters'],
             default_root_dir=self.output_dir,
-            callbacks=[ModelCheckpoint(dirpath=self.output_dir, save_last=True)])
+            callbacks=[ModelCheckpoint(dirpath=self.output_dir, save_last=True)],
+            sync_batchnorm=True)
 
     def run(self):
         logging.info('Training model...')
@@ -152,9 +114,7 @@ class Train:
             ckpt_path=self.ckpt_path)
 
         # save trained model
-        logging.info('Training complete; saving model...')
-        # if self.neptune_enabled:
-        #     self.model.logger.experiment['final'].upload(os.path.join(self.output_dir, 'last.ckpt'))
+        logging.info('Training complete.')
         
         # delete any temporary files generated as memory maps
         wipe_temp_files(self.movie_dm)

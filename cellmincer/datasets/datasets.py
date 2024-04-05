@@ -1,28 +1,22 @@
 import os
 import logging
-import pprint
-import time
 
 import json
 import pickle
 
 import numpy as np
 import torch
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional
 
 from torch.utils.data import Dataset, DataLoader
 from lightning.pytorch import LightningDataModule
 
 from cellmincer.models import \
-    DenoisingModel, \
-    init_model, \
     get_temporal_order_from_config, \
     get_window_padding_from_config
 
 from cellmincer.util import \
-    OptopatchBaseWorkspace, \
-    OptopatchDenoisingWorkspace, \
-    const
+    OptopatchDenoisingWorkspace
 
 import warnings
 
@@ -47,7 +41,7 @@ class MovieDataset(Dataset):
             y_padding: int,
             t_total: int,
             length: int,
-            oversample: Optional[dict] = None):
+            importance: Optional[dict] = None):
         super().__init__()
         
         self.ws_denoising_list = ws_denoising_list
@@ -58,14 +52,14 @@ class MovieDataset(Dataset):
         self.t_total = t_total
         self.length = length
         
-        if oversample is None:
+        if importance is None:
             self.pivot = None
         else:
             self.pivot = []
             for ws_denoising in self.ws_denoising_list:
                 intensity = []
 
-                for _ in range(oversample['n_sample']):
+                for _ in range(importance['n_sample']):
                     n_frames, width, height = ws_denoising.shape
                     t0 = np.random.randint(n_frames)
                     x0 = np.random.randint(width - self.x_window + 1)
@@ -84,7 +78,7 @@ class MovieDataset(Dataset):
                     intensity.append(crop_xy.mean())
 
                 intensity.sort()
-                ds_pivot = intensity[-int(oversample['n_sample'] * oversample['pivot'])]
+                ds_pivot = intensity[-int(importance['n_sample'] * importance['pivot'])]
                 self.pivot.append(ds_pivot)
 
     def __len__(self):
@@ -159,7 +153,7 @@ class MovieDataModule(LightningDataModule):
             t_total: int,
             n_batch: int,
             length: int,
-            oversample: Optional[dict] = None):
+            importance: Optional[dict] = None):
         super().__init__()
         
         self.n_batch = n_batch
@@ -171,7 +165,7 @@ class MovieDataModule(LightningDataModule):
             y_padding=y_padding,
             t_total=t_total,
             length=length,
-            oversample=oversample)
+            importance=importance)
         self.n_global_features = ws_denoising_list[0].n_global_features
 
     def prepare_data(self):
@@ -249,7 +243,7 @@ def build_datamodule(
         t_total=get_temporal_order_from_config(model_config) + train_config['t_tandem'] - 1,
         n_batch=train_config['n_batch'],
         length=gpus * train_config['n_batch'],
-        oversample=train_config.get('oversample', None))
+        importance=train_config.get('importance', None))
 
 def wipe_temp_files(movie_dm: MovieDataModule):
     for ws_denoising in movie_dm.dataset.ws_denoising_list:

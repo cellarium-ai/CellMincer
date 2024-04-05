@@ -1,7 +1,5 @@
 import os
 import logging
-import pprint
-import time
 import json
 
 import matplotlib.pylab as plt
@@ -12,7 +10,7 @@ from scipy.signal import stft, istft
 from sklearn.linear_model import LinearRegression
 
 from abc import abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from cellmincer.util import OptopatchBaseWorkspace, const
 
@@ -154,8 +152,8 @@ class Preprocess:
 
             fig = plt.figure()
             ax = plt.gca()
-            ax.hist(bg_raw_mean_t[1:] - bg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5);
-            ax.hist(fg_raw_mean_t[1:] - fg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5);
+            ax.hist(bg_raw_mean_t[1:] - bg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5)
+            ax.hist(fg_raw_mean_t[1:] - fg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5)
             ax.set_title('BEFORE de-jittering')
             ax.set_xlabel('Frame-to-frame log intensity difference')
             ax.legend()
@@ -164,8 +162,8 @@ class Preprocess:
 
             fig = plt.figure()
             ax = plt.gca()
-            ax.hist(bg_dj_mean_t[1:] - bg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5);
-            ax.hist(fg_dj_mean_t[1:] - fg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5);
+            ax.hist(bg_dj_mean_t[1:] - bg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5)
+            ax.hist(fg_dj_mean_t[1:] - fg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5)
             ax.set_title('AFTER de-jittering')
             ax.set_xlabel('Frame-to-frame log intensity difference')
             ax.legend()

@@ -1,9 +1,7 @@
 import numpy as np
-import torch
-from torch import nn
 
 import logging
-from typing import Tuple, Union
+from typing import Union
 
 from .denoising_model import DenoisingModel
 
