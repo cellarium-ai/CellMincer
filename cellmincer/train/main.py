@@ -70,7 +70,7 @@ class Train:
             train_config = config['train']
             
             # compute training padding with maximal output/input receptive field ratio
-            output_min_size = np.arange(config['train']['output_min_size_lo'], config['train']['output_min_size_hi'] + 1)
+            output_min_size = np.arange(config['train']['output_min_size_lims'][0], config['train']['output_min_size_lims'][1] + 1)
             output_min_size = output_min_size[(output_min_size % 2) == 0]
             train_padding = get_window_padding_from_config(
                 model_config=config['model'],

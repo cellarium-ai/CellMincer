@@ -29,9 +29,11 @@ def generate_optimizer(denoising_model, optim_params: dict, lr: float):
 
 def generate_lr_scheduler(
         optim: torch.optim.Optimizer,
-        lr_params: dict,
+        lr_params: dict | None,
         n_iters: int):
-    if lr_params['type'] == 'cosine-annealing-warmup':
+    if lr_params['type'] == 'constant':
+        sched = None
+    elif lr_params['type'] == 'cosine-annealing-warmup':
         sched = CosineAnnealingWarmupRestarts(
             optim,
             first_cycle_steps=n_iters,

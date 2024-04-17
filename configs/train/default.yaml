@@ -20,7 +20,6 @@ model:
   type: spatial-unet-2d-temporal-denoiser
 train:
   importance: null
-  loss_type: lp
   lr_params:
     max: 0.0001
     min: 0
@@ -31,13 +30,13 @@ train:
   norm_p: 2
   occlusion_prob: 0.2
   occlusion_radius: 0
-  occlusion_strategy: random
   optim_params:
     betas:
     - 0.9
     - 0.999
     type: adam
     weight_decay: 0.1
-  output_min_size_hi: 64
-  output_min_size_lo: 32
+  output_min_size_lims:
+  - 32
+  - 64
   t_tandem: 1
