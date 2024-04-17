@@ -13,7 +13,7 @@ Example configuration YAMLs
 Trained models
 --------------
 
-`Trained on 3 Optosynth datasets <https://storage.cloud.google.com/bw-cellmincer-dev/models/optosynth.ckpt>`_
+`Trained on 5 Optosynth datasets <https://storage.cloud.google.com/bw-cellmincer-dev/models/optosynth.ckpt>`_
 
 `Trained on 10 Optopatch datasets <https://storage.cloud.google.com/bw-cellmincer-dev/models/optopatch_10.ckpt>`_ [#farhi]_
 
@@ -22,6 +22,6 @@ Trained models
 .. rubric:: Footnotes
 
 .. [#farhi]
-    Data provided by Sami Farhi, Optical Profiling Platform, Broad Institute.
+    Data provided by Sami Farhi, Spatial Technology Platform (STP), Broad Institute of MIT and Harvard.
 .. [#miller]
-    Data provided by Evan Miller, Miller Lab, UC Berkeley.
+    Data provided by Evan Miller, Departments of Molecular \& Cell Biology and Chemistry and Helen Wills Neuroscience Institute, UC Berkeley.
