@@ -3,21 +3,25 @@
 Resources
 =========
 
+Refer to `downloading from Google Cloud storage`_.
+
+.. _`downloading from Google Cloud storage`: https://cloud.google.com/storage/docs/uploads-downloads
+
 Example configuration YAMLs
 ---------------------------
 
-`Preprocessing <https://storage.cloud.google.com/bw-cellmincer-dev/configs/preprocess.yaml>`_
+`Preprocessing <gs://broad-dsp-cellmincer-data/configs/preprocess/optosynth.yaml>`_
 
-`Training <https://storage.cloud.google.com/bw-cellmincer-dev/configs/train.yaml>`_
+`Training <gs://broad-dsp-cellmincer-data/configs/train/default.yaml>`_
 
 Trained models
 --------------
 
-`Trained on 5 Optosynth datasets <https://storage.cloud.google.com/bw-cellmincer-dev/models/optosynth.ckpt>`_
+`Trained on 5 Optosynth datasets <gs://broad-dsp-cellmincer-data/models/optosynth.ckpt>`_
 
-`Trained on 10 Optopatch datasets <https://storage.cloud.google.com/bw-cellmincer-dev/models/optopatch_10.ckpt>`_ [#farhi]_
+`Trained on 10 Optopatch datasets <gs://broad-dsp-cellmincer-data/models/optopatch10.ckpt>`_ [#farhi]_
 
-`Trained on 26 (high-speed dye) Optopatch datasets <https://storage.cloud.google.com/bw-cellmincer-dev/models/optosynth.ckpt>`_ [#miller]_
+`Trained on 26 (high-speed dye) Optopatch datasets <gs://broad-dsp-cellmincer-data/models/pairedberst.ckpt>`_ [#miller]_
 
 .. rubric:: Footnotes
 
