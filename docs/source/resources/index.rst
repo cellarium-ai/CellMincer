@@ -22,6 +22,6 @@ Trained models
 .. rubric:: Footnotes
 
 .. [#farhi]
-    Data provided by Sami Farhi, Spatial Technology Platform (STP), Broad Institute of MIT and Harvard.
+   Data provided by Sami Farhi, Spatial Technology Platform (STP), Broad Institute of MIT and Harvard.
 .. [#miller]
-    Data provided by Evan Miller, Departments of Molecular \& Cell Biology and Chemistry and Helen Wills Neuroscience Institute, UC Berkeley.
+   Data provided by Evan Miller, Departments of Molecular \& Cell Biology and Chemistry and Helen Wills Neuroscience Institute, UC Berkeley.

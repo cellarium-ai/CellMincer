@@ -420,7 +420,7 @@ class Preprocess:
         elif input_file.endswith('.bin'):
             ws_base = OptopatchBaseWorkspace.from_bin_uint16(
                 input_file,
-                n_frames=manifest['n_frames_per_segment'] * manifest['n_segments'],
+                n_frames=manifest.get('n_frames', manifest['n_frames_per_segment'] * manifest['n_segments']),
                 width=manifest['width'],
                 height=manifest['height'],
                 order=manifest['order'])

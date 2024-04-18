@@ -19,7 +19,66 @@ Command line options
 Configuration options
 ~~~~~~~~~~~~~~~~~~~~~
 
-...
+**bfgs.history_size :** *int*
+
+**bfgs.line_search_fn :** *string*
+
+**bfgs.lr :** *float*
+
+**bfgs.max_iter :** *int*
+
+**bfgs.tolerance_change :** *float*
+
+**bfgs.tolerance_grad :** *float*
+
+**dejitter.detrending_method :** *string*
+
+**dejitter.detrending_order :** *int*
+
+**dejitter.enabled :** *bool*
+
+**dejitter.show_diagnostic_plots :** *bool*
+
+**dejitter.stft_lp_cutoff :** *float*
+
+**dejitter.stft_lp_slope :** *float*
+
+**dejitter.stft_noverlap :** *int*
+
+**dejitter.stft_nperseg :** *int*
+
+**detrend.smoothing :** *string or null*
+
+**detrend.init_unc_decay_rate :** *float*
+
+**detrend.max_iters_per_segment :** *int*
+
+**detrend.plot_segments :** *bool*
+
+**detrend.poly_order :** *int*
+
+**detrend.trend_model :** *string*
+
+**device :** *string*
+    The device used by PyTorch for trend fitting.
+
+**noise_estimation.n_bootstrap :** *int*
+
+**noise_estimation.plot_example :** *bool*
+
+**noise_estimation.plot_subsample :** *int*
+
+**noise_estimation.stationarity_window :** *int*
+
+**trim.n_frames_fit_left :** *int*
+
+**trim.n_frames_fit_right :** *int*
+
+**trim.trim_left :** *int*
+    The number of frames to trim off the left end of each segment.
+
+**trim.trim_right :** *int*
+    The number of frames to trim off the right end of each segment.
 
 ``train``
 ---------
@@ -38,25 +97,35 @@ Configuration options
 ~~~~~~~~~~~~~~~~~~~~~
 
 **model.occlude_padding :** *bool*
-    Enables pixel masking on every frame padding pixel when reflection padding is used, preventing the model from "cheating" in its prediction task. Generally recommended to set True, particularly when training datasets have narrow frames and image crops often include the edge of the frame. (Note: padding is never occluded for data denoising.)
+    Enables pixel masking on every frame padding pixel when reflection padding is used, preventing the model from "cheating" in its prediction task. Recommended to set True, particularly when training datasets have narrow frames and image crops often include the edge of the frame. (Note: padding is never occluded for data denoising.)
 
 **model.padding_mode :** *string*
     The per-frame padding strategy for training and denoising, as one of the following string values.
     
-    **'reflect'**
+    - 'reflect'
         Pads with the reflection of each frame along its edges.
-    **'constant'**
+    - 'constant'
         Pads with zeros.
 
 **model.spatial_unet_activation :** *string*
     The conditional U-Net's activation function, as one of the following string values.
 
-    'relu' (recommended): implemented as ``torch.nn.ReLU()``
-    'elu': implemented as ``torch.nn.ELU()``
-    'selu': implemented as ``torch.nn.SELU()``
-    'sigmoid': implemented as ``torch.nn.Sigmoid()``
-    'leaky_relu': implemented as ``torch.nn.LeakyReLU()``
-    'softplus': implemented as ``torch.nn.Softplus()``
+    .. list-table::
+       :widths: 10 15
+       :header-rows: 0
+
+       * - 'relu'
+         - ``torch.nn.ReLU()``
+       * - 'elu'
+         - ``torch.nn.ELU()``
+       * - 'selu'
+         - ``torch.nn.SELU()``
+       * - 'sigmoid'
+         - ``torch.nn.Sigmoid()``
+       * - 'leaky_relu'
+         - ``torch.nn.LeakyReLU()``
+       * - 'softplus'
+         - ``torch.nn.Softplus()``
 
 **model.spatial_unet_attention :** *bool*
     Enables U-Net local attention.
@@ -70,11 +139,11 @@ Configuration options
 **model.spatial_unet_feature_mode :** *string*
     Configures the conditioning of the U-Net on global features, as one of the following string values.
 
-    'repeat' (recommended)
+    - 'repeat'
         At the beginning and before each subsequent step of the contracting path, concatenates an appropriately downsampled version of the global feature tensor to the partial embedding product.
-    'once'
+    - 'once'
         Global features concatenated to input of U-Net.
-    'none'
+    - 'none'
         No use of global features.
 
 **model.spatial_unet_first_conv_channels :** *int*
@@ -87,7 +156,7 @@ Configuration options
     Number of convolution layers at each U-Net step.
 
 **model.spatial_unet_padding :** *bool*
-    Enables padding after each convolution layer. Recommended to set False.
+    Enables padding after each convolution layer. Set False when using whole-frame padding.
 
 **model.spatial_unet_readout_kernel_size :** *int*
     Kernel size for processing readout from U-Net output. Not used in training.
@@ -128,9 +197,9 @@ Configuration options
 **train.lr_params :** *dict*
     The learning rate scheduler settings. Below are the options for **train.lr_params.type** and each type's associated hyperparameters.
     
-    'constant': A fixed learning rate across training iterations.
+    - 'constant': A fixed learning rate across training iterations.
         **train.lr_params.max_lr :** *float* -- the learning rate.
-    'cosine-annealing-warmup': A cosine-annealing with linear warmup scheduler [implemented here](https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/).
+    - 'cosine-annealing-warmup': A cosine-annealing with linear warmup scheduler [implemented here](https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/).
         **train.lr_params.max_lr :** *float* -- the maximum learning rate.
         **train.lr_params.min_lr :** *float* -- the minimum learning rate.
         **train.lr_params.warmup :** *float* -- the proportion of initial training allocated to linearly ramping from **min_lr** to **max_lr**.
@@ -153,10 +222,10 @@ Configuration options
 **train.optim_params :** *dict*
     The optimizer settings. Below are the options for **train.optim_params.type** and each type's associated hyperparameters.
     
-    'adam': Adam optimizer.
+    - 'adam': Adam optimizer.
         **train.optim_params.betas :** *list[float]* -- :math:`\beta_1` and :math:`\beta_2`.
         **train.optim_params.weight_decay :** *float* -- Weight decay parameter.
-    'sgd': SGD optimizer.
+    - 'sgd': SGD optimizer.
         **train.lr_params.momentum :** *float* -- Momentum parameter.
 
 **train.output_min_size_lims :** *list[int]*
