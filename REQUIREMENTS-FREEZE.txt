@@ -3,7 +3,7 @@ lightning
 matplotlib
 numpy
 pandas
-pyyaml
+pyyaml>=5.4
 scikit-image
 scikit-learn
 scikit-video
