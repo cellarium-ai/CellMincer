@@ -19,7 +19,7 @@ Create a conda environment and activate it:
 
 .. code-block:: console
 
-  $ conda create -n cellmincer python=3.10
+  $ conda create -n cellmincer python=3.12
   $ conda activate cellmincer
 
 Install with ``pip`` from Git repository:

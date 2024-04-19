@@ -19,7 +19,7 @@ Command line options
 Configuration options
 ~~~~~~~~~~~~~~~~~~~~~
 
-(please stay tuned for the upcoming documentation update)
+(please stay tuned for an upcoming documentation update)
 
 **bfgs.history_size :** *int*
 
