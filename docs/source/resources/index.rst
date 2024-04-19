@@ -3,7 +3,7 @@
 Resources
 =========
 
-Refer to `downloading from Google Cloud storage <https://cloud.google.com/storage/docs/uploads-downloads>`_
+Refer to `downloading from Google Cloud storage <https://cloud.google.com/storage/docs/uploads-downloads>`_.
 
 Example configuration YAMLs
 ---------------------------

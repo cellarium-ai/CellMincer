@@ -13,14 +13,14 @@ An overview of voltage imaging data generation and CellMincer denoising model is
 
 # Documentation and resources
 
-Coming soon!
+[Our documentation](https://cellmincer.readthedocs.io/) is hosted on `Read the Docs`.
 
 # Data availability
 
 Raw and denoised voltage imaging datasets, as well as pretrained models and example configurations, can be found at this Google bucket: `gs://broad-dsp-cellmincer-data` (refer to [downloading from Google Cloud storage](https://cloud.google.com/storage/docs/uploads-downloads)).
 
 # Preprint and citation
-The bioRxiv preprint for CellMincer [can be found here](https://www.biorxiv.org/content/10.1101/2024.04.12.589298v1). The BibTeX citation:
+The bioRxiv preprint for CellMincer can be [found here](https://www.biorxiv.org/content/10.1101/2024.04.12.589298v1). The BibTeX citation:
 ```
 @article {Wang2024.04.12.589298,
     author = {Brice Wang, Tianle Ma, Theresa Chen, Trinh Nguyen, Ethan Crouse, Stephen J Fleming, Alison S Walker, Vera Valakh, Ralda Nehme, Evan W Miller, Samouil L Farhi, and Mehrtash Babadi},
