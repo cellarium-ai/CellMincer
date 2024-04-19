@@ -1,7 +1,0 @@
-n_frames_per_segment: 6000
-n_segments: 1
-order: tyx
-n_frames: 6000
-width: 512
-height: 512
-sampling_rate: 30

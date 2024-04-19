@@ -26,7 +26,7 @@ train:
     type: cosine-annealing-warmup
     warmup: 0.1
   n_batch: 10
-  n_iters: 50000
+  n_iters: 80000
   norm_p: 2
   occlusion_prob: 0.2
   occlusion_radius: 0
