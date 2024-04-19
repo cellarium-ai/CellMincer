@@ -4,7 +4,6 @@ import yaml
 import logging
 import os
 import sys
-from datetime import datetime
 
 from cellmincer.cli.base_cli import AbstractCLI
 from cellmincer.train.main import Train
@@ -25,17 +24,19 @@ class CLI(AbstractCLI):
 
         # Ensure that if there's a tilde for $HOME in the file path, it works.
         try:
-            args.inputs = [os.path.expanduser(x) for x in args.inputs]
+            args.datasets = [os.path.expanduser(x) for x in args.datasets]
             args.output_dir = os.path.expanduser(args.output_dir)
             args.config = os.path.expanduser(args.config)
             if args.pretrain:
                 args.pretrain = os.path.expanduser(args.pretrain)
+            if args.resume:
+                args.resume = os.path.expanduser(args.resume)
             if args.checkpoint:
                 args.checkpoint = os.path.expanduser(args.checkpoint)
-            if args.checkpoint_start:
-                args.checkpoint_start = os.path.expanduser(args.checkpoint_start)
         except TypeError:
             raise ValueError('Problem with provided input paths.')
+        
+        assert args.gpus >= 1, 'Training requires at least one CUDA-supported GPU.'
 
         self.args = args
 
@@ -71,11 +72,11 @@ class CLI(AbstractCLI):
                                       
         # train model
         Train(
-            inputs=args.inputs,
+            datasets=args.datasets,
             output_dir=args.output_dir,
             config=config,
             gpus=args.gpus,
             use_memmap=args.use_memmap,
             pretrain=args.pretrain,
-            checkpoint=args.checkpoint,
-            checkpoint_start=args.checkpoint_start).run()
+            resume=args.resume,
+            checkpoint=args.checkpoint).run()

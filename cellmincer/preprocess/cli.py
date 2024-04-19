@@ -4,7 +4,6 @@ import yaml
 import logging
 import os
 import sys
-from datetime import datetime
 
 from cellmincer.cli.base_cli import AbstractCLI
 from cellmincer.preprocess.main import Preprocess
@@ -29,8 +28,6 @@ class CLI(AbstractCLI):
             args.output_dir = os.path.expanduser(args.output_dir)
             args.manifest = os.path.expanduser(args.manifest)
             args.config = os.path.expanduser(args.config)
-            if args.clean_ref:
-                args.clean_ref = os.path.expanduser(args.clean_ref)
         except TypeError:
             raise ValueError('Problem with provided input paths.')
 
@@ -76,6 +73,4 @@ class CLI(AbstractCLI):
             input_file=args.input_file,
             output_dir=args.output_dir,
             manifest=manifest,
-            config=config,
-            clean_ref=args.clean_ref
-            ).run()
+            config=config).run()

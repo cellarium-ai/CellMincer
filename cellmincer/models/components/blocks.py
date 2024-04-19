@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 from .functions import *
 
 class UNetConvBlock(torch.nn.Module):

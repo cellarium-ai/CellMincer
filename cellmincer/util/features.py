@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import logging
-import pickle
 from dataclasses import dataclass, field
 from typing import List, Optional
 from scipy.signal import find_peaks
@@ -64,10 +63,6 @@ def generate_padded_movie(
     
     assert original_width % 2 == 0
     assert original_height % 2 == 0
-
-    padded_n_frames = original_n_frames + 2 * min_t_padding
-    padded_width = original_width + 2 * min_x_padding
-    padded_height = original_height + 2 * min_y_padding
     
     if power_of_two:
         assert is_power_of_two(original_width)

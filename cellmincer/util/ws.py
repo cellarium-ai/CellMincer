@@ -1,11 +1,11 @@
 import numpy as np
 from skimage.filters import threshold_otsu
-from boltons.cacheutils import cachedproperty
+from functools import cached_property
 import tempfile
 import torch
 import tifffile
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 from .utils import get_cosine_similarity_with_sequence_np
 from .features import OptopatchGlobalFeatureContainer
@@ -104,29 +104,29 @@ class OptopatchBaseWorkspace:
             dtype=self.dtype,
             neighbor_dx_dy_list=self.neighbor_dx_dy_list)
     
-    @cachedproperty
+    @cached_property
     def n_frames(self):
         return self.movie_txy.shape[-3]
     
-    @cachedproperty
+    @cached_property
     def width(self):
         return self.movie_txy.shape[-2]
 
-    @cachedproperty
+    @cached_property
     def height(self):
         return self.movie_txy.shape[-1]
 
-    @cachedproperty
+    @cached_property
     def n_pixels(self):
         return self.width * self.height
 
-    @cachedproperty
+    @cached_property
     def movie_t_mean_xy(self):
         """Temporal mean"""
         logging.debug("Calculating temporal mean ...")
         return np.mean(self.movie_txy, 0).astype(self.dtype)
     
-    @cachedproperty
+    @cached_property
     def movie_t_std_xy(self):
         """Temporal std"""
         logging.debug("Calculating temporal std ...")
@@ -138,7 +138,7 @@ class OptopatchBaseWorkspace:
         logging.debug("Calculating zero-mean movie ...")
         return (self.movie_txy - self.movie_t_mean_xy[None, ...]).astype(self.dtype)
     
-    @cachedproperty
+    @cached_property
     def movie_t_corr_xy_list(self) -> List[np.ndarray]:
         """Peason correlation with nearest neighobrs"""
         logging.debug("Calculating temporal correlation with neighbors ...")
@@ -160,42 +160,42 @@ class OptopatchBaseWorkspace:
             movie_t_corr_xy_list.append(movie_t_corr_dxdy_xy.astype(self.dtype))
         return movie_t_corr_xy_list
     
-    @cachedproperty
+    @cached_property
     def movie_t_corr_xy(self) -> np.ndarray:
         return np.maximum.reduce(self.movie_t_corr_xy_list).astype(self.dtype)
     
-    @cachedproperty
+    @cached_property
     def corr_otsu_threshold(self) -> float:
         return threshold_otsu(self.movie_t_corr_xy)
 
-    @cachedproperty
+    @cached_property
     def corr_otsu_fg_pixel_mask_xy(self) -> np.ndarray:
         return self.movie_t_corr_xy >= self.corr_otsu_threshold
     
-    @cachedproperty
+    @cached_property
     def corr_otsu_fg_weight(self) -> float:
         return self.corr_otsu_fg_pixel_mask_xy.sum().item() / self.n_pixels
 
-    @cachedproperty
+    @cached_property
     def corr_otsu_fg_mean_t(self) -> np.ndarray:
         return np.mean(
             self.movie_txy.reshape(self.n_frames, -1)[:, self.corr_otsu_fg_pixel_mask_xy.reshape(-1)],
             axis=-1).astype(self.dtype)
     
-    @cachedproperty
+    @cached_property
     def movie_cosine_fg_sim_xy(self) -> np.ndarray:
         return get_cosine_similarity_with_sequence_np(
             self.movie_txy, self.corr_otsu_fg_mean_t).astype(self.dtype)
     
-    @cachedproperty
+    @cached_property
     def cosine_fg_sim_otsu_threshold(self) -> float:
         return threshold_otsu(self.movie_cosine_fg_sim_xy)
 
-    @cachedproperty
+    @cached_property
     def cosine_fg_sim_otsu_fg_pixel_mask_xy(self) -> np.ndarray:
         return self.movie_cosine_fg_sim_xy >= self.cosine_fg_sim_otsu_threshold
     
-    @cachedproperty
+    @cached_property
     def cosine_fg_sim_otsu_fg_weight(self) -> float:
         return self.cosine_fg_sim_otsu_fg_pixel_mask_xy.sum().item() / self.n_pixels
 
@@ -245,8 +245,25 @@ class OptopatchDenoisingWorkspace:
             use_memmap: bool,
             clip: float = 0,
             padding_mode: Optional[str] = 'reflect',
-            occlude_padding: Optional[bool] = False,
+            occlude_padding: Optional[bool] = True,
             device: Optional[torch.device] = None):
+        '''
+        Initializes a new OptopatchDenoisingWorkspace.
+        
+        :param movie_diff: Detrended movie array.
+        :param movie_bg_path: Path to movie trend (lazily loaded).
+        :param noise_params: Estimated noise parameters.
+        :param features: Wrapper object for precomputed global features.
+        :param x_padding: Width of whole-frame padding.
+        :param y_padding: Height of whole-frame padding.
+        :param use_memmap: If True, writes movie arrays to file, to be lazily loaded.
+            Can reduce CPU memory requirements for large training corpora.
+        :param clip: If greater than 0, clips all detrended movie values between -clip and clip.
+        :param padding_mode: Whole-frame padding structure. Options are ['reflect', 'constant']
+        :param occlude_padding: If True, masking is applied to all padding values. Prevents model from
+            "cheating" on edge pixel prediction by using its padding reflection.
+        :param device: Device to load movie crops onto.
+        '''
         self.noise_params = noise_params
         self.device = device
         
@@ -260,6 +277,8 @@ class OptopatchDenoisingWorkspace:
         self.padding_mode = padding_mode
         self.padded_width = self.width + 2 * x_padding
         self.padded_height = self.height + 2 * y_padding
+        
+        self.tempfiles = []
         
         assert padding_mode in ('reflect', 'constant')
 
@@ -304,11 +323,12 @@ class OptopatchDenoisingWorkspace:
                 dtype=padded_scaled_diff_movie_1txy.dtype,
                 mode='r',
                 shape=padded_scaled_diff_movie_1txy.shape)
+            self.tempfiles.append(fname)
         else:
             logging.info('Memory map disabled; retaining array in memory...')
             self.padded_scaled_diff_movie_1txy = padded_scaled_diff_movie_1txy
 
-    @cachedproperty
+    @cached_property
     def padded_scaled_bg_movie_1txy(self) -> np.ndarray:
         movie_bg = np.load(self._movie_bg_path)
         return np.pad(

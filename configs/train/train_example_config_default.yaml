@@ -1,0 +1,42 @@
+model:
+  occlude_padding: true
+  padding_mode: reflect
+  spatial_unet_activation: relu
+  spatial_unet_attention: false
+  spatial_unet_batch_norm: true
+  spatial_unet_depth: 3
+  spatial_unet_feature_mode: repeat
+  spatial_unet_first_conv_channels: 64
+  spatial_unet_kernel_size: 3
+  spatial_unet_n_conv_layers: 3
+  spatial_unet_padding: false
+  spatial_unet_readout_kernel_size: 1
+  temporal_denoiser_activation: relu
+  temporal_denoiser_conv_channels: 64
+  temporal_denoiser_hidden_dense_layer_dims:
+  - 32
+  temporal_denoiser_kernel_size: 5
+  temporal_denoiser_n_conv_layers: 3
+  type: spatial-unet-2d-temporal-denoiser
+train:
+  importance: null
+  lr_params:
+    max: 0.0001
+    min: 0
+    type: cosine-annealing-warmup
+    warmup: 0.1
+  n_batch: 10
+  n_iters: 80000
+  norm_p: 2
+  occlusion_prob: 0.2
+  occlusion_radius: 0
+  optim_params:
+    betas:
+    - 0.9
+    - 0.999
+    type: adam
+    weight_decay: 0.1
+  output_min_size_lims:
+  - 32
+  - 64
+  t_tandem: 1

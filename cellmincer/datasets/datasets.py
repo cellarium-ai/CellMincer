@@ -1,28 +1,22 @@
 import os
 import logging
-import pprint
-import time
 
 import json
 import pickle
 
 import numpy as np
 import torch
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional
 
 from torch.utils.data import Dataset, DataLoader
-from pytorch_lightning import LightningDataModule
+from lightning.pytorch import LightningDataModule
 
 from cellmincer.models import \
-    DenoisingModel, \
-    init_model, \
     get_temporal_order_from_config, \
     get_window_padding_from_config
 
 from cellmincer.util import \
-    OptopatchBaseWorkspace, \
-    OptopatchDenoisingWorkspace, \
-    const
+    OptopatchDenoisingWorkspace
 
 import warnings
 
@@ -38,6 +32,12 @@ def movie_collate_fn(data):
         'over_pivot': np.array([item['over_pivot'] for item in data])}
 
 class MovieDataset(Dataset):
+    '''
+    Extends the PyTorch Dataset class for OptopatchDenoisingWorkspace.
+    
+    It also manages the desired crop size and padding for training samples,
+    as well as the configuration for importance-biased sampling.
+    '''
     def __init__(
             self,
             ws_denoising_list: List[OptopatchDenoisingWorkspace],
@@ -47,7 +47,24 @@ class MovieDataset(Dataset):
             y_padding: int,
             t_total: int,
             length: int,
-            oversample: Optional[dict] = None):
+            importance: Optional[dict] = None):
+        '''
+        Initialize a new MovieDataset.
+
+        :param ws_denoising_list: List of individual movies and associated data for training.
+        :param x_window: Width of crop corresponding to target output size during training.
+        :param y_window: Height of crop corresponding to target output size during training.
+        :param x_padding: Width of padding for crop inputted in model training.
+        :param y_padding: Height of padding for crop inputted in model training.
+        :param t_total: Total number of frames per crop, factoring in context size and number of tandem middle frames.
+        :param length: Effective total minibatch size over all devices.
+        :param importance: Configuration dictionary for importance sampling. Keys:
+            'n_sample': Number of crops sampled to estimate each movie's intensity threshold.
+            'pivot': Intensity pivot for resampling. Ex. if pivot is 0.01, 50% of each minibatch's entries will be
+                crops in the top 1% intensity.
+        '''
+        super().__init__()
+        
         self.ws_denoising_list = ws_denoising_list
         self.x_window = x_window
         self.y_window = y_window
@@ -56,14 +73,14 @@ class MovieDataset(Dataset):
         self.t_total = t_total
         self.length = length
         
-        if oversample is None:
+        if importance is None:
             self.pivot = None
         else:
             self.pivot = []
             for ws_denoising in self.ws_denoising_list:
                 intensity = []
 
-                for _ in range(oversample['n_sample']):
+                for _ in range(importance['n_sample']):
                     n_frames, width, height = ws_denoising.shape
                     t0 = np.random.randint(n_frames)
                     x0 = np.random.randint(width - self.x_window + 1)
@@ -82,7 +99,7 @@ class MovieDataset(Dataset):
                     intensity.append(crop_xy.mean())
 
                 intensity.sort()
-                ds_pivot = intensity[-int(oversample['n_sample'] * oversample['pivot'])]
+                ds_pivot = intensity[-int(importance['n_sample'] * importance['pivot'])]
                 self.pivot.append(ds_pivot)
 
     def __len__(self):
@@ -95,7 +112,15 @@ class MovieDataset(Dataset):
         over_pivot = item * 2 < self.length if self.pivot is not None else None
         return self._generate_random_slice(movie_idx, over_pivot)
 
-    def _generate_random_slice(self, movie_idx, over_pivot):
+    def _generate_random_slice(self, movie_idx: int, over_pivot: bool | None):
+        '''
+        Generates a single random movie crop from a specified movie, restricted to being
+        either over or under the intensity threshold if importance sampling is being used.
+        
+        :param movie_idx: Index of movie in `self.ws_denoising_list`.
+        :param over_pivot: If None (when importance sampling is not used), no restriction.
+            Otherwise, crop to be returned is sampled until over the threshold if True, under if False.
+        '''
         ws_denoising = self.ws_denoising_list[movie_idx]
 
         n_frames, width, height = ws_denoising.shape
@@ -147,6 +172,9 @@ class MovieDataset(Dataset):
             'over_pivot': over_pivot}
 
 class MovieDataModule(LightningDataModule):
+    '''
+    Extends PyTorch Lightning's DataModule for producing DataLoaders for training.
+    '''
     def __init__(
             self,
             ws_denoising_list: List[OptopatchDenoisingWorkspace],
@@ -157,7 +185,25 @@ class MovieDataModule(LightningDataModule):
             t_total: int,
             n_batch: int,
             length: int,
-            oversample: Optional[dict] = None):
+            importance: Optional[dict] = None):
+        '''
+        Initialize a new MovieDataset.
+
+        :param ws_denoising_list: List of individual movies and associated data for training.
+        :param x_window: Width of crop corresponding to target output size during training.
+        :param y_window: Height of crop corresponding to target output size during training.
+        :param x_padding: Width of padding for crop inputted in model training.
+        :param y_padding: Height of padding for crop inputted in model training.
+        :param t_total: Total number of frames per crop, factoring in context size and number of tandem middle frames.
+        :param n_batch: Minibatch size per device.
+        :param length: Effective total minibatch size over all devices.
+        :param importance: Configuration dictionary for importance sampling. Keys:
+            'n_sample': Number of crops sampled to estimate each movie's intensity threshold.
+            'pivot': Intensity pivot for resampling. Ex. if pivot is 0.01, 50% of each minibatch's entries will be
+                crops in the top 1% intensity.
+        '''
+        super().__init__()
+        
         self.n_batch = n_batch
         self.dataset = MovieDataset(
             ws_denoising_list=ws_denoising_list,
@@ -167,7 +213,7 @@ class MovieDataModule(LightningDataModule):
             y_padding=y_padding,
             t_total=t_total,
             length=length,
-            oversample=oversample)
+            importance=importance)
         self.n_global_features = ws_denoising_list[0].n_global_features
 
     def prepare_data(self):
@@ -187,13 +233,22 @@ class MovieDataModule(LightningDataModule):
             shuffle=False)
 
     def val_dataloader(self) -> "torch.dataloader":
-        pass
+        return []
 
 def build_ws_denoising(
         dataset: str,
         model_config: dict,
         use_memmap: bool,
         device: Optional[torch.device] = None):
+    '''
+    Factory function for OptopatchDenoisingWorkspace.
+    
+    :param dataset: Path to dataset directory, generated by `cellmincer preprocess`.
+    :param model_config: Model configuration dictionary.
+    :param use_memmap: If True, writes movie arrays to file, to be lazily loaded.
+        Can reduce CPU memory requirements for large training corpora.
+    :param device: Device to load movie crops onto.
+    '''
     movie_diff = np.load(os.path.join(dataset, 'trend_subtracted.npy'))
     movie_bg_path = os.path.join(dataset, 'trend.npy')
 
@@ -245,4 +300,12 @@ def build_datamodule(
         t_total=get_temporal_order_from_config(model_config) + train_config['t_tandem'] - 1,
         n_batch=train_config['n_batch'],
         length=gpus * train_config['n_batch'],
-        oversample=train_config.get('oversample', None))
+        importance=train_config.get('importance', None))
+
+def wipe_temp_files(movie_dm: MovieDataModule):
+    for ws_denoising in movie_dm.dataset.ws_denoising_list:
+        for tfile in ws_denoising.tempfiles:
+            try:
+                os.remove(tfile)
+            except FileNotFoundError:
+                pass

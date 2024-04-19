@@ -9,13 +9,13 @@ dejitter:
   detrending_method: stft
   detrending_order: 3
   enabled: false
-  ignore_first_n_frames: 100
   show_diagnostic_plots: false
   stft_lp_cutoff: 80.0
   stft_lp_slope: 0.25
   stft_noverlap: 64
   stft_nperseg: 256
 detrend:
+  smoothing: none
   init_unc_decay_rate: 1.0
   max_iters_per_segment: 3
   plot_segments: false
@@ -30,5 +30,5 @@ noise_estimation:
 trim:
   n_frames_fit_left: 150
   n_frames_fit_right: 150
-  trim_left: 50
-  trim_right: 50
+  trim_left: 0
+  trim_right: 0

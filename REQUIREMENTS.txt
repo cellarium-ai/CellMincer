@@ -1,19 +1,13 @@
+cosine_annealing_warmup @ https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/tarball/master#egg=cosine_annealing_warmupmatplotlib
+lightning
 matplotlib
 numpy
-scipy
-tangled-up-in-unicode==0.1.0
-tifffile
-torch>=1.10
-torchinfo
-boltons
-fastapi
-pydantic==1.8.2
-pytorch-lightning
+pandas
 pyyaml
 scikit-image
 scikit-learn
 scikit-video
-neptune-client>=0.14.2
-protobuf==3.19.4
-typing_extensions>=3.10.0, <4.0.0.0
-cosine_annealing_warmup @ https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/tarball/master#egg=cosine_annealing_warmup
+scipy
+tifffile
+torch>=2.2
+torchinfo

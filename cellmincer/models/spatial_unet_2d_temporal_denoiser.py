@@ -1,11 +1,9 @@
 import numpy as np
 import torch
 from torch import nn
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
-from pytorch_lightning import LightningModule
-from pytorch_lightning.loggers import NeptuneLogger
-from pytorch_lightning.loggers.base import DummyExperiment
+from lightning.pytorch import LightningModule
 
 from torchinfo import summary
 
@@ -26,6 +24,9 @@ from cellmincer.util import \
 
 
 class SpatialUnet2dTemporalDenoiser(DenoisingModel):
+    '''
+    A CellMincer denoising model consisting of a single-frame conditional U-Net embedder with a convolutional temporal post-processor.
+    '''
     def __init__(
             self,
             config: dict):
@@ -103,7 +104,7 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
             y0: int = 0,
             x_window: int = None,
             y_window: int = None) -> torch.Tensor:
-        # defaults bounds to full movie if unspecified
+        # default bounds to full movie limits
         if t_end is None:
             t_end = ws_denoising.n_frames
         if x_window is None:
@@ -134,6 +135,8 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
                 x_padding=x_padding,
                 y_padding=y_padding)
         
+        # compute sliding window of U-Net frame embeddings,
+        # pass each window into post-processor to get denoised middle frame
         with torch.no_grad():
             for i_t in range(mid_frame_begin - t_mid, mid_frame_begin + t_mid):
                 padded_sliced_movie_1txy = ws_denoising.get_movie_slice(
@@ -252,6 +255,9 @@ class SpatialUnet2dTemporalDenoiser(DenoisingModel):
 
 
 class PlSpatialUnet2dTemporalDenoiser(LightningModule):
+    '''
+    A LightningModule wrapper of the `SpatialUnet2dTemporalDenoiser` model.
+    '''
     def __init__(
             self,
             model_config: dict,
@@ -259,9 +265,7 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
         super(PlSpatialUnet2dTemporalDenoiser, self).__init__()
         
         self.save_hyperparameters('model_config', 'train_config')
-        
-        self.neptune_run_id = None
-        self.denoising_model = nn.SyncBatchNorm.convert_sync_batchnorm(SpatialUnet2dTemporalDenoiser(model_config))
+        self.denoising_model = SpatialUnet2dTemporalDenoiser(model_config)
 
     def forward(
             self,
@@ -273,8 +277,6 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
             target_height=self.hparams.train_config['y_window'])
 
     def training_step(self, batch, batch_idx) -> torch.Tensor:
-        # batch is what the dataloader provides -> movie slice
-
         occluded_batch = self._occlude_data(batch)
         denoised_output_ntxy = self(occluded_batch['padded_diff'], batch['features'])
         loss_dict = self._compute_noise2self_loss(
@@ -284,9 +286,9 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
             over_pivot=batch['over_pivot'])
 
         loss = loss_dict["rec_loss"]
-        self.log('train/loss', loss.item())
-        if isinstance(self.logger.experiment, DummyExperiment):
-            self.logger.experiment['train/loss'].log(loss.item())
+        if loss is not None:
+            # default Tensorboard logging
+            self.log('train/loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx: int = -1) -> Any:
@@ -316,17 +318,14 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
         def _compute_lp_loss(_err, _norm_p, _scale=1.):
             return (_scale * (_err.abs() + const.EPS).pow(_norm_p)).sum()
 
-        x_window, y_window = self.hparams.train_config['x_window'], self.hparams.train_config['y_window']
-        total_pixels = x_window * y_window
         t_tandem = denoised_output_ntxy.shape[1]
 
-        # reweighting for oversampling bias, if applicable
-        if self.hparams.train_config.get('oversample', None) is not None:
+        # reweighting for importance sampling, if in use
+        if self.hparams.train_config.get('importance', None) is not None:
             reweight_n = np.where(over_pivot, 0.01 / 0.5, 0.99 / 0.5)
         else:
             reweight_n = np.ones_like(over_pivot)
-        reweight_n = reweight_n.astype('float32')
-        reweight_n = torch.from_numpy(reweight_n).to(self.device)
+        reweight_n = torch.from_numpy(reweight_n.astype('float32')).to(self.device)
 
         total_masked_pixels_t = occlusion_masks.sum(dim=(0, 2, 3))
         loss_scale_t = 1. / (t_tandem * (const.EPS + total_masked_pixels_t))
@@ -367,7 +366,7 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
 
         n_batch, t_tandem = middle_frames_ntxy.shape[:2]
         
-        # generate a uniform bernoulli mask
+        # generate a uniform Bernoulli mask
         occlusion_masks_ntxy = _generate_bernoulli_mask(
             p=occlusion_prob,
             n_batch=n_batch,
@@ -389,11 +388,5 @@ class PlSpatialUnet2dTemporalDenoiser(LightningModule):
         return {
             'padded_diff': padded_diff_movie_ntxy,
             'middle_frames': middle_frames_ntxy,
-            'occlusion_masks': occlusion_masks_ntxy}
-    
-    def on_save_checkpoint(self, checkpoint):
-        if isinstance(self.logger, NeptuneLogger):
-            checkpoint['neptune_run_id'] = self.logger.run._short_id
-
-    def on_load_checkpoint(self, checkpoint):
-        self.neptune_run_id = checkpoint.get('neptune_run_id', None)
+            'occlusion_masks': occlusion_masks_ntxy
+        }

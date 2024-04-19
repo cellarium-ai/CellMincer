@@ -1,14 +1,13 @@
-import os
-
 import numpy as np
 import torch
-from typing import Optional, Union, List, Tuple
+from typing import Optional, List, Tuple
 from bisect import bisect_left, bisect_right
 
-import torch
 from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
 
 from . import const
+
+from typing import Union
 
 import logging
 
@@ -30,9 +29,11 @@ def generate_optimizer(denoising_model, optim_params: dict, lr: float):
 
 def generate_lr_scheduler(
         optim: torch.optim.Optimizer,
-        lr_params: dict,
+        lr_params: dict | None,
         n_iters: int):
-    if lr_params['type'] == 'cosine-annealing-warmup':
+    if lr_params['type'] == 'constant':
+        sched = None
+    elif lr_params['type'] == 'cosine-annealing-warmup':
         sched = CosineAnnealingWarmupRestarts(
             optim,
             first_cycle_steps=n_iters,

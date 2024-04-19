@@ -22,6 +22,10 @@ install_requires = [
     line.rstrip() for line in open(os.path.join(os.path.dirname(__file__), get_requirements_filename()))
 ]
 
+rtd_requires = [
+    line.rstrip() for line in open(os.path.join(os.path.dirname(__file__), "REQUIREMENTS-RTD.txt"))
+]
+
 setuptools.setup(
     name='cellmincer',
     version='0.1.0',
@@ -31,7 +35,7 @@ setuptools.setup(
       'Development Status :: 3 - Alpha',
       'Intended Audience :: Science/Research'
       'License :: OSI Approved :: BSD License',
-      'Programming Language :: Python :: 3.7',
+      'Programming Language :: Python :: 3.10',
       'Topic :: Scientific/Engineering',
     ],
     url='http://github.com/broadinstitute/CellMincer',
@@ -39,6 +43,14 @@ setuptools.setup(
     license='BSD (3-Clause)',
     packages=['cellmincer'],
     install_requires=install_requires,
+    extras_require={
+        'dev': rtd_requires + [
+            'docs',
+            'lint',
+            'mypy',
+            'ruff',
+        ],
+    },
     entry_points={
         'console_scripts': ['cellmincer=cellmincer.cli.base_cli:main'],
     },

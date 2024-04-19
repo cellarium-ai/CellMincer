@@ -1,15 +1,9 @@
 import os
 import logging
-import pprint
-import time
-
-import json
-import pickle
 import tifffile
 
 from skvideo import io as skio
 from matplotlib.colors import Normalize
-import matplotlib.pylab as plt
 import numpy as np
 import torch
 from typing import List, Optional
@@ -18,42 +12,45 @@ from cellmincer.datasets import build_ws_denoising
 
 from cellmincer.models import load_model_from_checkpoint
 
-from cellmincer.util import const, crop_center
+from cellmincer.util import const
     
 class Denoise:
     def __init__(
             self,
-            input_dir: str,
+            dataset: str,
             output_dir: str,
             model_ckpt: str,
-            model_type: str,
             avi_enabled: bool,
-            avi_frames: Optional[List[int]],
-            avi_sigma: Optional[List[int]],
-            peak: Optional[int] = 65535):
-        self.output_dir = output_dir
-        if not os.path.exists(self.output_dir):
-            os.mkdir(self.output_dir)
+            avi_frame_range: Optional[List[int]],
+            avi_zscore_range: Optional[List[int]]):
+        '''
+        Denoising CLI class.
         
-        clean_path = os.path.join(input_dir, 'clean.npy')
-        self.clean = np.load(clean_path) if os.path.exists(clean_path) else None
+        :param dataset: Path to directory of processed dataset.
+        :param output_dir: Path to directory for denoised results.
+        :param model_ckpt: Path to model checkpoint file.
+        :param avi_enabled: When True, .AVI visualization is also generated.
+        :param avi_frame_range: A list of two ints denoting the start and end of the movie segment to render as .AVI.
+        :param avi_zscore_range: A list of two ints denoting the clipping limits of the normalized denoised movie for .AVI.
+        '''
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
         
         self.model = load_model_from_checkpoint(
-            model_type=model_type,
+            model_type='spatial-unet-2d-temporal-denoiser',
             ckpt_path=model_ckpt)
         self.model.hparams.model_config['occlude_padding'] = False
         self.model.to(const.DEFAULT_DEVICE)
         
         self.ws_denoising = build_ws_denoising(
-            dataset=input_dir,
+            dataset=dataset,
             model_config=self.model.hparams.model_config,
             device=torch.device('cuda'),
             use_memmap=False)
 
         self.avi_enabled = avi_enabled
-        self.avi_frames = avi_frames if avi_frames is not None else [0, self.ws_denoising.n_frames]
-        self.avi_sigma = avi_sigma if avi_sigma is not None else [0, 10]
-        self.peak = peak
+        self.avi_frame_range = avi_frame_range if avi_frame_range is not None else [0, self.ws_denoising.n_frames]
+        self.avi_zscore_range = avi_zscore_range if avi_zscore_range is not None else [0, 10]
     
     def run(self):
         logging.info('Denoising movie...')
@@ -64,50 +61,43 @@ class Denoise:
         denoised_txy *= self.ws_denoising.cached_features.norm_scale
         
         tifffile.imwrite(
-            os.path.join(self.output_dir, f'denoised_detrended_tyx.tif'),
+            os.path.join(self.output_dir, 'denoised_detrended_tyx.tif'),
             denoised_txy.transpose((0, 2, 1)))
 
         if self.avi_enabled:
             denoised_norm_txy = self.normalize_movie(
                 denoised_txy,
-                sigma_lo=self.avi_sigma[0],
-                sigma_hi=self.avi_sigma[1])
+                zscore_lo=self.avi_zscore_range[0],
+                zscore_hi=self.avi_zscore_range[1])
 
             writer = skio.FFmpegWriter(
-                os.path.join(self.output_dir, f'denoised.avi'),
+                os.path.join(self.output_dir, 'denoised.avi'),
                 outputdict={'-vcodec': 'rawvideo', '-pix_fmt': 'yuv420p', '-r': '60'})
             
-            i_start, i_end = self.avi_frames
+            i_start, i_end = self.avi_frame_range
             if i_start < 0:
                 i_start += self.ws_denoising.n_frames
             if i_end < 0:
                 i_end += self.ws_denoising.n_frames
             
-            logging.info(f'Writing .avi with sigma range={self.avi_sigma}; frames=[{i_start}, {i_end}]')
+            logging.info(f'Writing .avi with z-score range={self.avi_zscore_range}; frames=[{i_start}, {i_end}]')
 
             for i_frame in range(i_start, i_end):
                 writer.writeFrame(denoised_norm_txy[i_frame].T[None, ...])
             writer.close()
 
         denoised_txy += self.ws_denoising.bg_movie_txy
-        
-        if self.clean is not None:
-            mse_t = np.mean(np.square(self.clean - denoised_txy), axis=tuple(range(1, self.clean.ndim)))
-            psnr_t = 10 * np.log10(self.peak * self.peak / mse_t)
-            np.save(
-                os.path.join(self.output_dir, 'psnr_t.npy'),
-                psnr_t)
 
         tifffile.imwrite(
-            os.path.join(self.output_dir, f'denoised_tyx.tif'),
+            os.path.join(self.output_dir, 'denoised_tyx.tif'),
             denoised_txy.transpose((0, 2, 1)))
         logging.info('Denoising done.')
 
     def normalize_movie(
             self,
             movie_txy: np.ndarray,
-            sigma_lo: float,
-            sigma_hi: float,
+            zscore_lo: float,
+            zscore_hi: float,
             mean=None,
             std=None,
             max_intensity=255):
@@ -116,5 +106,5 @@ class Denoise:
         if std is None:
             std = movie_txy.std()
         z_movie_txy  = (movie_txy - mean) / std
-        norm = Normalize(vmin=sigma_lo, vmax=sigma_hi, clip=True)
+        norm = Normalize(vmin=zscore_lo, vmax=zscore_hi, clip=True)
         return max_intensity * norm(z_movie_txy)

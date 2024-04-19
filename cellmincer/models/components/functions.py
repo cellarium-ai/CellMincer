@@ -10,7 +10,7 @@ __all__ = [
     '_REFLECTION_PAD_DICT',
     '_CENTER_CROP_DICT',
     '_ACTIVATION_DICT',
-    'activation_from_str'
+    'activation_from_str',
 ]
 
 def center_crop_1d(layer: torch.Tensor, target: torch.Tensor) -> torch.Tensor:

@@ -1,7 +1,5 @@
 import os
 import logging
-import pprint
-import time
 import json
 
 import matplotlib.pylab as plt
@@ -12,7 +10,7 @@ from scipy.signal import stft, istft
 from sklearn.linear_model import LinearRegression
 
 from abc import abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from cellmincer.util import OptopatchBaseWorkspace, const
 
@@ -22,27 +20,21 @@ class Preprocess:
             input_file: str,
             output_dir: str,
             manifest: dict,
-            config: dict,
-            clean_ref: Optional[str] = None):
+            config: dict):
+        '''
+        Preprocessing CLI class.
+        
+        :param input_file: Path to raw dataset.
+        :param output_dir: Path to directory for collecting dataset processing.
+        :param manifest: Dictionary containing specifying parameters of dataset.
+        :param config: Preprocessing config dictionary.
+        '''
         self.ws_base = Preprocess.ws_base_from_input_manifest(
             input_file=input_file,
             manifest=manifest)
         
-        if clean_ref:
-            self.ws_clean = Preprocess.ws_base_from_input_manifest(
-                input_file=clean_ref,
-                manifest=manifest)
-        else:
-            self.ws_clean = None
-        
         self.output_dir = output_dir
-        if not os.path.exists(self.output_dir):
-            logging.info(f'Creating output directory {self.output_dir}')
-            os.mkdir(self.output_dir)
-        self.plot_dir = os.path.join(output_dir, 'plots')
-        if not os.path.exists(self.plot_dir):
-            os.mkdir(self.plot_dir)
-        self.clean_ref = clean_ref
+        os.makedirs(self.output_dir, exist_ok=True)
         
         self.n_frames_per_segment = manifest['n_frames_per_segment']
         self.n_segments = manifest['n_segments']
@@ -55,6 +47,10 @@ class Preprocess:
         self.detrend_config = config['detrend']
         self.bfgs = config['bfgs']
         self.device = torch.device(config['device'])
+        
+        if self.dejitter_config['show_diagnostic_plots'] or self.ne_config['plot_example'] or self.detrend_config['plot_segments']:
+            self.plot_dir = os.path.join(self.output_dir, 'plots')
+            os.makedirs(self.plot_dir, exist_ok=True)
 
     def run(self):
         movie_txy = self.ws_base.movie_txy
@@ -87,14 +83,6 @@ class Preprocess:
         output_file = os.path.join(self.output_dir, 'noise_params.json')
         with open(output_file, 'w') as f:
             json.dump(noise_model_params, f)
-
-        # trimming and writing clean reference if exists
-        if self.ws_clean:
-            trimmed_clean_txy = np.concatenate([
-                self.get_trimmed_segment(self.ws_clean.movie_txy, i_segment)[1]
-                for i_segment in range(self.n_segments)])
-            output_file = os.path.join(self.output_dir, 'clean.npy')
-            np.save(output_file, trimmed_clean_txy)
             
         # writing active range mask if stim params provided
         if self.stim:
@@ -111,7 +99,11 @@ class Preprocess:
 
         logging.info('Preprocessing done.')
         
-    def dejitter(self, movie_txy: np.ndarray) -> np.ndarray:
+    def dejitter(
+            self,
+            movie_txy: np.ndarray,
+            plot_bins: int = 200,
+            plot_range: Tuple[int] = (-0.01, 0.01)) -> np.ndarray:
         logging.info('Dejittering movie...')
         
         baseline = self.dejitter_config.get(
@@ -172,8 +164,8 @@ class Preprocess:
 
             fig = plt.figure()
             ax = plt.gca()
-            ax.hist(bg_raw_mean_t[1:] - bg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5);
-            ax.hist(fg_raw_mean_t[1:] - fg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5);
+            ax.hist(bg_raw_mean_t[1:] - bg_raw_mean_t[:-1], bins=plot_bins, range=plot_range, label='bg', alpha=0.5)
+            ax.hist(fg_raw_mean_t[1:] - fg_raw_mean_t[:-1], bins=plot_bins, range=plot_range, label='fg', alpha=0.5)
             ax.set_title('BEFORE de-jittering')
             ax.set_xlabel('Frame-to-frame log intensity difference')
             ax.legend()
@@ -182,8 +174,8 @@ class Preprocess:
 
             fig = plt.figure()
             ax = plt.gca()
-            ax.hist(bg_dj_mean_t[1:] - bg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5);
-            ax.hist(fg_dj_mean_t[1:] - fg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5);
+            ax.hist(bg_dj_mean_t[1:] - bg_dj_mean_t[:-1], bins=plot_bins, range=plot_range, label='bg', alpha=0.5)
+            ax.hist(fg_dj_mean_t[1:] - fg_dj_mean_t[:-1], bins=plot_bins, range=plot_range, label='fg', alpha=0.5)
             ax.set_title('AFTER de-jittering')
             ax.set_xlabel('Frame-to-frame log intensity difference')
             ax.legend()
@@ -440,7 +432,7 @@ class Preprocess:
         elif input_file.endswith('.bin'):
             ws_base = OptopatchBaseWorkspace.from_bin_uint16(
                 input_file,
-                n_frames=manifest['n_frames_per_segment'] * manifest['n_segments'],
+                n_frames=manifest.get('n_frames', manifest['n_frames_per_segment'] * manifest['n_segments']),
                 width=manifest['width'],
                 height=manifest['height'],
                 order=manifest['order'])

@@ -12,18 +12,19 @@ def add_subparser_args(subparsers: argparse) -> argparse:
 
     subparser = subparsers.add_parser(
         'preprocess',
-        description='Dejitters and detrends raw datasets.',
-        help='Dejitters and detrends raw datasets.')
+        description='Prepares raw dataset for training or denoising.',
+        help='Prepares raw dataset for training or denoising. This tool detrends the data and computes global features, writing all outputs to a dedicated output directory.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     subparser.add_argument(
         '-i',
-        '--input-file',
+        '--input',
         nargs=None,
         type=str,
         dest='input_file',
         default=None,
         required=True,
-        help='Input dataset directory.')
+        help='Input dataset file to preprocess. Accepted formats are .TIF, .NPY, .NPZ, .BIN.')
 
     subparser.add_argument(
         '-o',
@@ -52,14 +53,5 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         default=None,
         required=True,
         help='Preprocessing configuration YAML.')
-
-    subparser.add_argument(
-        '--clean',
-        nargs=None,
-        type=str,
-        dest='clean_ref',
-        default=None,
-        required=False,
-        help='Clean reference movie.')
 
     return subparsers

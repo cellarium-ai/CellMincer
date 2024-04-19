@@ -1,10 +1,8 @@
 '''Command-line tool functionality for `cellmincer denoise`.'''
 
-import yaml
 import logging
 import os
 import sys
-from datetime import datetime
 
 from cellmincer.cli.base_cli import AbstractCLI
 from cellmincer.denoise.main import Denoise
@@ -25,7 +23,7 @@ class CLI(AbstractCLI):
 
         # Ensure that if there's a tilde for $HOME in the file path, it works.
         try:
-            args.input_dir = os.path.expanduser(args.input_dir)
+            args.dataset = os.path.expanduser(args.dataset)
             if args.output_dir:
                 args.output_dir = os.path.expanduser(args.output_dir)
             else:
@@ -54,10 +52,9 @@ class CLI(AbstractCLI):
         
         # denoise data
         Denoise(
-            input_dir=args.input_dir,
+            dataset=args.dataset,
             output_dir=args.output_dir,
             model_ckpt=args.model_ckpt,
-            model_type=args.model_type,
             avi_enabled=args.avi_enabled,
-            avi_frames=args.avi_frames,
-            avi_sigma=args.avi_sigma).run()
+            avi_frame_range=args.avi_frame_range,
+            avi_zscore_range=args.avi_zscore_range).run()

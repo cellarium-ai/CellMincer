@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 DEFAULT_DEVICE = 'cuda'
