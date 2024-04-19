@@ -46,28 +46,19 @@ def add_subparser_args(subparsers: argparse) -> argparse:
         help='Path to trained model checkpoint.')
     
     subparser.add_argument(
-        '--type',
-        nargs=None,
-        type=str,
-        dest='model_type',
-        default=None,
-        required=True,
-        help='Name of model class. Options: "spatial-unet-2d-temporal-denoiser"')
-    
-    subparser.add_argument(
-        '--avi-frames',
+        '--avi-frame-range',
         nargs=2,
         type=int,
-        dest='avi_frames',
+        dest='avi_frame_range',
         default=None,
         required=False,
         help='Range of frames to output as .AVI, declared as start (inclusive) and end (exclusive).')
     
     subparser.add_argument(
-        '--avi-sigma',
+        '--avi-zscore-range',
         nargs=2,
         type=int,
-        dest='avi_sigma',
+        dest='avi_zscore_range',
         default=None,
         required=False,
         help='Pixel intensity clip range of .AVI, as z-scores of intensity distribution.')

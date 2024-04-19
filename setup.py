@@ -22,6 +22,10 @@ install_requires = [
     line.rstrip() for line in open(os.path.join(os.path.dirname(__file__), get_requirements_filename()))
 ]
 
+rtd_requires = [
+    line.rstrip() for line in open(os.path.join(os.path.dirname(__file__), "REQUIREMENTS-RTD.txt"))
+]
+
 setuptools.setup(
     name='cellmincer',
     version='0.1.0',
@@ -40,7 +44,7 @@ setuptools.setup(
     packages=['cellmincer'],
     install_requires=install_requires,
     extras_require={
-        'dev': [
+        'dev': rtd_requires + [
             'docs',
             'lint',
             'mypy',

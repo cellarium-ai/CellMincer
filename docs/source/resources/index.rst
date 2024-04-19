@@ -3,25 +3,30 @@
 Resources
 =========
 
-Refer to `downloading from Google Cloud storage`_.
-
-.. _`downloading from Google Cloud storage`: https://cloud.google.com/storage/docs/uploads-downloads
+Refer to `downloading from Google Cloud storage <https://cloud.google.com/storage/docs/uploads-downloads>`_
 
 Example configuration YAMLs
 ---------------------------
 
-`Preprocessing <gs://broad-dsp-cellmincer-data/configs/preprocess/optosynth.yaml>`_
+| Preprocessing YAML configuration sample file
+| ``gs://broad-dsp-cellmincer-data/configs/preprocess/optosynth.yaml``
 
-`Training <gs://broad-dsp-cellmincer-data/configs/train/default.yaml>`_
+| Training YAML configuration sample file
+| ``gs://broad-dsp-cellmincer-data/configs/train/default.yaml``
+
+Please modify these YAML files as appropriate for your run. The complete preprocessing and training YAML configuration options and their descriptions can be found under :ref:`Resources <resources>`.
 
 Trained models
 --------------
 
-`Trained on 5 Optosynth datasets <gs://broad-dsp-cellmincer-data/models/optosynth.ckpt>`_
+| Pretrained CellMincer model on 5 Optosynth datasets simulated with :math:`Q=50` photons per fluorophore, which can be `found here <gs://broad-dsp-cellmincer-data/Optosynth/raw/>`__. See :ref:`our preprint <citation>` for a detailed explanation of the Optosynth data generation process.
+| ``gs://broad-dsp-cellmincer-data/models/optosynth.ckpt``
 
-`Trained on 10 Optopatch datasets <gs://broad-dsp-cellmincer-data/models/optopatch10.ckpt>`_ [#farhi]_
+| Pretrained CellMincer model on 10 Optopatch datasets, which can be `found here <gs://broad-dsp-cellmincer-data/FarhiOptopatch/>`__. [#farhi]_
+| ``gs://broad-dsp-cellmincer-data/models/optopatch10.ckpt``
 
-`Trained on 26 (high-speed dye) Optopatch datasets <gs://broad-dsp-cellmincer-data/models/pairedberst.ckpt>`_ [#miller]_
+| Pretrained CellMincer model on 26 Optopatch datasets using BeRST fluorescence, which can be `found here <gs://broad-dsp-cellmincer-data/PairedBeRST/raw/>`__. [#miller]_
+| ``gs://broad-dsp-cellmincer-data/models/pairedberst.ckpt``
 
 .. rubric:: Footnotes
 

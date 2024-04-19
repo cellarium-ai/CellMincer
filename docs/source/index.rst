@@ -10,7 +10,7 @@ CellMincer is a software package for training and deploying self-supervised deno
 
 The :ref:`Introduction <introduction>` section offers a brief overview of the package and a showcase of its capabilities.
 
-The :ref:`Usage <usage>` section presents a quick primer on CellMincer's tools and their usage on example data.
+The :ref:`Quick-start tutorial <tutorial>` section presents a quick primer on CellMincer's tools and their usage on example data.
 
 The :ref:`Resources <resources>` section provides example configuration files for preparing data and training models, as well as pretrained models.
 
@@ -21,7 +21,7 @@ The :ref:`Resources <resources>` section provides example configuration files fo
    
    introduction/index
    installation/index
-   usage/index
+   tutorial/index
    reference/index
    resources/index
    citation/index

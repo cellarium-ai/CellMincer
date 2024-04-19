@@ -6,9 +6,9 @@ Installation
 Docker image
 ----------------------
 
-A GPU-enabled docker image is available at
+A GPU-enabled docker image is available on the Google Artifact Registry here:
 
-<insert link to Google Container Repository>
+``us-central1-docker.pkg.dev/broad-dsde-methods/cellarium-ai/cellmincer:0.1.0``
 
 Installing from source
 ----------------------

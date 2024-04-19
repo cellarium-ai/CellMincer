@@ -55,7 +55,6 @@ class CLI(AbstractCLI):
             dataset=args.dataset,
             output_dir=args.output_dir,
             model_ckpt=args.model_ckpt,
-            model_type=args.model_type,
             avi_enabled=args.avi_enabled,
-            avi_frames=args.avi_frames,
-            avi_sigma=args.avi_sigma).run()
+            avi_frame_range=args.avi_frame_range,
+            avi_zscore_range=args.avi_zscore_range).run()

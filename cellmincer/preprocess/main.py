@@ -21,6 +21,14 @@ class Preprocess:
             output_dir: str,
             manifest: dict,
             config: dict):
+        '''
+        Preprocessing CLI class.
+        
+        :param input_file: Path to raw dataset.
+        :param output_dir: Path to directory for collecting dataset processing.
+        :param manifest: Dictionary containing specifying parameters of dataset.
+        :param config: Preprocessing config dictionary.
+        '''
         self.ws_base = Preprocess.ws_base_from_input_manifest(
             input_file=input_file,
             manifest=manifest)
@@ -91,7 +99,11 @@ class Preprocess:
 
         logging.info('Preprocessing done.')
         
-    def dejitter(self, movie_txy: np.ndarray) -> np.ndarray:
+    def dejitter(
+            self,
+            movie_txy: np.ndarray,
+            plot_bins: int = 200,
+            plot_range: Tuple[int] = (-0.01, 0.01)) -> np.ndarray:
         logging.info('Dejittering movie...')
         
         baseline = self.dejitter_config.get(
@@ -152,8 +164,8 @@ class Preprocess:
 
             fig = plt.figure()
             ax = plt.gca()
-            ax.hist(bg_raw_mean_t[1:] - bg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5)
-            ax.hist(fg_raw_mean_t[1:] - fg_raw_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5)
+            ax.hist(bg_raw_mean_t[1:] - bg_raw_mean_t[:-1], bins=plot_bins, range=plot_range, label='bg', alpha=0.5)
+            ax.hist(fg_raw_mean_t[1:] - fg_raw_mean_t[:-1], bins=plot_bins, range=plot_range, label='fg', alpha=0.5)
             ax.set_title('BEFORE de-jittering')
             ax.set_xlabel('Frame-to-frame log intensity difference')
             ax.legend()
@@ -162,8 +174,8 @@ class Preprocess:
 
             fig = plt.figure()
             ax = plt.gca()
-            ax.hist(bg_dj_mean_t[1:] - bg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='bg', alpha=0.5)
-            ax.hist(fg_dj_mean_t[1:] - fg_dj_mean_t[:-1], bins=200, range=(-0.01, 0.01), label='fg', alpha=0.5)
+            ax.hist(bg_dj_mean_t[1:] - bg_dj_mean_t[:-1], bins=plot_bins, range=plot_range, label='bg', alpha=0.5)
+            ax.hist(fg_dj_mean_t[1:] - fg_dj_mean_t[:-1], bins=plot_bins, range=plot_range, label='fg', alpha=0.5)
             ax.set_title('AFTER de-jittering')
             ax.set_xlabel('Frame-to-frame log intensity difference')
             ax.legend()

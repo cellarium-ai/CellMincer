@@ -19,6 +19,8 @@ Command line options
 Configuration options
 ~~~~~~~~~~~~~~~~~~~~~
 
+(please stay tuned for the upcoming documentation update)
+
 **bfgs.history_size :** *int*
 
 **bfgs.line_search_fn :** *string*
@@ -71,8 +73,10 @@ Configuration options
 **noise_estimation.stationarity_window :** *int*
 
 **trim.n_frames_fit_left :** *int*
+    The number of frames (after trimming) on the left end of each segment to fit the trend.
 
 **trim.n_frames_fit_right :** *int*
+    The number of frames (after trimming) on the right end of each segment to fit the trend.
 
 **trim.trim_left :** *int*
     The number of frames to trim off the left end of each segment.

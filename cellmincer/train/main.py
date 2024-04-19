@@ -26,7 +26,18 @@ class Train:
             pretrain: Optional[str] = None,
             resume: Optional[str] = None,
             checkpoint: Optional[str] = None):
+        '''
+        Training CLI class.
         
+        :param datasets: List of paths to directories of processed datasets.
+        :param output_dir: Path to directory for writing model checkpoints.
+        :param config: Training config dictionary.
+        :param gpus: Number of devices in training.
+        :param use_memmap: If True, padded normalized movie arrays are written to file and lazily loaded, reducing memory burden.
+        :param pretrain: Path to pretrained model checkpoint, used if fine-tuning an existing model.
+        :param resume: Path to paused model checkpoint, used if resuming training from an intermediate point.
+        :param checkpoint: Path to preempted model checkpoint, used if continuing through an interruption from a preemptible machine (generally used on Terra).
+        '''
         self.model = None
         
         # if finetuning trained model

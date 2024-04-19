@@ -245,8 +245,25 @@ class OptopatchDenoisingWorkspace:
             use_memmap: bool,
             clip: float = 0,
             padding_mode: Optional[str] = 'reflect',
-            occlude_padding: Optional[bool] = False,
+            occlude_padding: Optional[bool] = True,
             device: Optional[torch.device] = None):
+        '''
+        Initializes a new OptopatchDenoisingWorkspace.
+        
+        :param movie_diff: Detrended movie array.
+        :param movie_bg_path: Path to movie trend (lazily loaded).
+        :param noise_params: Estimated noise parameters.
+        :param features: Wrapper object for precomputed global features.
+        :param x_padding: Width of whole-frame padding.
+        :param y_padding: Height of whole-frame padding.
+        :param use_memmap: If True, writes movie arrays to file, to be lazily loaded.
+            Can reduce CPU memory requirements for large training corpora.
+        :param clip: If greater than 0, clips all detrended movie values between -clip and clip.
+        :param padding_mode: Whole-frame padding structure. Options are ['reflect', 'constant']
+        :param occlude_padding: If True, masking is applied to all padding values. Prevents model from
+            "cheating" on edge pixel prediction by using its padding reflection.
+        :param device: Device to load movie crops onto.
+        '''
         self.noise_params = noise_params
         self.device = device
         
