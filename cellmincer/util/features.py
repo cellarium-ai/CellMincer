@@ -245,9 +245,9 @@ def get_continuous_1d_mask(mask_t: np.ndarray, smoothing = 11) -> np.ndarray:
 class OptopatchGlobalFeatureExtractor:
     def __init__(
             self,
-            ws_base: 'OptopatchBaseWorkspace',
+            movie_txy: np.ndarray,
             active_mask: Optional[np.ndarray],
-            select_active_t_range: bool = True,
+            infer_active_t_range: bool = False,
             max_depth: int = 3,
             detrending_order: int = 10,
             trend_func: str = 'mean',
@@ -255,7 +255,7 @@ class OptopatchGlobalFeatureExtractor:
             padding_mode: str = 'reflect',
             dtype: torch.dtype = const.DEFAULT_DTYPE):
         
-        self.ws_base = ws_base
+        self.movie_txy = movie_txy
         self.max_depth = max_depth
         self.detrending_order = detrending_order
         self.trend_func = trend_func
@@ -264,7 +264,7 @@ class OptopatchGlobalFeatureExtractor:
         self.dtype = dtype
         
         # containers
-        self.active_mask_t = active_mask if active_mask is not None else self.determine_active_t_range(ws_base, select_active_t_range)
+        self.active_mask_t = active_mask if active_mask is not None else self.determine_active_t_range(movie_txy, infer_active_t_range)
         self.features = OptopatchGlobalFeatureContainer()
         
         # populate features
@@ -272,11 +272,11 @@ class OptopatchGlobalFeatureExtractor:
         
     @staticmethod
     def determine_active_t_range(
-            ws_base: 'OptopatchBaseWorkspace',
-            select_active_t_range: bool):
+            movie_txy: np.ndarray,
+            infer_active_t_range: bool):
         
-        if select_active_t_range:
-            m_t = np.mean(ws_base.movie_txy, axis=(-1, -2))
+        if infer_active_t_range:
+            m_t = np.mean(movie_txy, axis=(-1, -2))
             
             smoothing = 7
             before_pad = smoothing // 2
@@ -295,12 +295,12 @@ class OptopatchGlobalFeatureExtractor:
             
             active_mask_t = get_continuous_1d_mask(m_t > threshold)
         else:
-            active_mask_t = np.ones((ws_base.n_frames,), dtype=np.bool)
+            active_mask_t = np.ones((movie_txy.shape[0],), dtype=np.bool)
         return active_mask_t
 
     def _populate_features(self):
         # pad the original movie to power of two
-        input_movie_txy = self.ws_base.movie_txy[self.active_mask_t, ...]
+        input_movie_txy = self.movie_txy[self.active_mask_t, ...]
         input_movie_std_scale = np.std(input_movie_txy)
 
         original_width = input_movie_txy.shape[-2]

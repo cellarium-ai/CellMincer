@@ -12,7 +12,7 @@ from sklearn.linear_model import LinearRegression
 from abc import abstractmethod
 from typing import List, Tuple
 
-from cellmincer.util import OptopatchBaseWorkspace, const
+from cellmincer.util import OptopatchBaseWorkspace, OptopatchGlobalFeatureExtractor, const
 
 class Preprocess:
     def __init__(
@@ -39,6 +39,7 @@ class Preprocess:
         self.n_frames_per_segment = manifest['n_frames_per_segment']
         self.n_segments = manifest['n_segments']
         self.sampling_rate = manifest['sampling_rate']
+        self.infer_active_t_range = manifest.get('infer_active_t_range', False)
         self.stim = manifest.get('stim')
         
         self.dejitter_config = config['dejitter']
@@ -47,6 +48,7 @@ class Preprocess:
         self.detrend_config = config['detrend']
         self.bfgs = config['bfgs']
         self.device = torch.device(config['device'])
+        self.feature_depth = config['feature_depth']
         
         if self.dejitter_config['show_diagnostic_plots'] or self.ne_config['plot_example'] or self.detrend_config['plot_segments']:
             self.plot_dir = os.path.join(self.output_dir, 'plots')
@@ -65,14 +67,17 @@ class Preprocess:
         # fit segment trends
         trimmed_segments_txy_list, mu_segments_txy_list = self.detrend(movie_txy, noise_model_params)
 
-        # save results to output directory
-        logging.info(f'Writing output to {self.output_dir}')
-
         trend_sub_movie_txy = np.concatenate([
             seg_txy - mu_txy
             for seg_txy, mu_txy in zip(trimmed_segments_txy_list, mu_segments_txy_list)],
             axis=0).astype(np.float32)
         trend_movie_txy = np.concatenate(mu_segments_txy_list, axis=0).astype(np.float32)
+
+        # precompute global features
+        feature_extractor = self.featurize(trend_sub_movie_txy)
+
+        # save results to output directory
+        logging.info(f'Writing output to {self.output_dir}')
 
         output_file = os.path.join(self.output_dir, 'trend_subtracted.npy')
         np.save(output_file, trend_sub_movie_txy)
@@ -83,19 +88,10 @@ class Preprocess:
         output_file = os.path.join(self.output_dir, 'noise_params.json')
         with open(output_file, 'w') as f:
             json.dump(noise_model_params, f)
-            
-        # writing active range mask if stim params provided
-        if self.stim:
-            mask = np.zeros(self.n_frames_per_segment * self.n_segments, dtype=np.bool)
-            for i_seg in range(self.stim['segment_start'], self.stim['segment_end']):
-                mask[i_seg * self.n_frames_per_segment + self.stim['frame_start']:
-                     i_seg * self.n_frames_per_segment + self.stim['frame_end']] = 1
-            mask = np.concatenate([
-                mask[i_seg * self.n_frames_per_segment + self.trim['trim_left']:
-                     (i_seg + 1) * self.n_frames_per_segment - self.trim['trim_right']]
-                for i_seg in range(self.n_segments)])
-            output_file = os.path.join(self.output_dir, 'active_mask.npy')
-            np.save(output_file, mask)
+
+        output_file = os.path.join(self.output_dir, 'features.pkl')
+        with open(output_file, 'wb') as f:
+            pickle.dump(feature_extractor.features, f)
 
         logging.info('Preprocessing done.')
         
@@ -340,6 +336,29 @@ class Preprocess:
             mu_segments_txy_list.append(mu_txy)
 
         return trimmed_segments_txy_list, mu_segments_txy_list
+
+
+    def featurize(self, movie_txy: np.ndarray) -> OptopatchGlobalFeatureExtractor
+        # compute active range mask if stim params provided
+        active_mask = None
+        if self.stim:
+            active_mask = np.zeros(self.n_frames_per_segment * self.n_segments, dtype=np.bool)
+            for i_seg in range(self.stim['segment_start'], self.stim['segment_end']):
+                active_mask[i_seg * self.n_frames_per_segment + self.stim['frame_start']:
+                     i_seg * self.n_frames_per_segment + self.stim['frame_end']] = 1
+            active_mask = np.concatenate([
+                active_mask[i_seg * self.n_frames_per_segment + self.trim['trim_left']:
+                     (i_seg + 1) * self.n_frames_per_segment - self.trim['trim_right']]
+                for i_seg in range(self.n_segments)])
+
+        logging.info('Extracting features...')
+        feature_extractor = OptopatchGlobalFeatureExtractor(
+            movie_txy=movie_txy,
+            active_mask=active_mask,
+            infer_active_t_range=self.infer_active_t_range,
+            max_depth=self.feature_depth)
+
+        return feature_extractor
 
 
     def get_trend(
