@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 from bisect import bisect_left, bisect_right
 
 from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
@@ -29,7 +29,7 @@ def generate_optimizer(denoising_model, optim_params: dict, lr: float):
 
 def generate_lr_scheduler(
         optim: torch.optim.Optimizer,
-        lr_params: dict | None,
+        lr_params: Optional[dict],
         n_iters: int):
     if lr_params['type'] == 'constant':
         sched = None

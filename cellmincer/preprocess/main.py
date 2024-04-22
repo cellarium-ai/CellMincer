@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import pickle
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -338,7 +339,7 @@ class Preprocess:
         return trimmed_segments_txy_list, mu_segments_txy_list
 
 
-    def featurize(self, movie_txy: np.ndarray) -> OptopatchGlobalFeatureExtractor
+    def featurize(self, movie_txy: np.ndarray) -> OptopatchGlobalFeatureExtractor:
         # compute active range mask if stim params provided
         active_mask = None
         if self.stim:
