@@ -35,7 +35,7 @@ class OptopatchBaseWorkspace:
             n_frames: int,
             width: int,
             height: int,
-            order: str = 'txy',
+            order: str = 'tyx',
             dtype = np.float32,
             neighbor_dx_dy_list: List[Tuple[int, int]] = DEFAULT_NEIGHBOR_DX_DY_LIST):
         # load the movie
@@ -52,7 +52,7 @@ class OptopatchBaseWorkspace:
     @staticmethod
     def from_npy(
             movie_npy_path: str,
-            order: str = 'txy',
+            order: str = 'tyx',
             dtype = np.float32,
             neighbor_dx_dy_list: List[Tuple[int, int]] = DEFAULT_NEIGHBOR_DX_DY_LIST):
         # load the movie
@@ -67,7 +67,7 @@ class OptopatchBaseWorkspace:
     @staticmethod
     def from_npz(
             movie_npz_path: str,
-            order: str = 'txy',
+            order: str = 'tyx',
             key = 'arr_0',
             dtype = np.float32,
             neighbor_dx_dy_list: List[Tuple[int, int]] = DEFAULT_NEIGHBOR_DX_DY_LIST):
@@ -86,7 +86,7 @@ class OptopatchBaseWorkspace:
     @staticmethod
     def from_tiff(
             movie_tiff_path: str,
-            order: str = 'txy',
+            order: str = 'tyx',
             dtype = np.float32,
             neighbor_dx_dy_list: List[Tuple[int, int]] = DEFAULT_NEIGHBOR_DX_DY_LIST):
         # load the movie

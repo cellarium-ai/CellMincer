@@ -3,6 +3,50 @@
 Reference
 #########
 
+.. _data_manifest:
+
+Data manifest
+-------------
+
+**n_frames_per_segment :** *int*
+    Number of frames in each movie segment. If unsegmented, set this as the total number of frames.
+
+**n_segments :** *int*
+    Number of movie segments. If unsegmented, set this as 1.
+
+**n_frames :** *int*
+    Total number of frames. If not given, defaults to :math:`\text{n_frames_per_segment}\times\text{n_segments}`.
+
+**order :** *string*
+    Sequence of data dimensions. For most image formats, this is "tyx" (time x height x width).
+
+**width :** *int*
+    Length of width dimension, only if file format is ``.bin``.
+
+**height :** *int*
+    Length of height dimension, only if file format is ``.bin``.
+
+**sampling_rate :** *int*
+    Sampling rate in Hertz.
+
+**infer_active_t_range :** *bool*
+    If True, uses average intensity over movie length to infer periods of activity. Featurization is limited to active frames.
+
+**stim :** *dict*
+    If provided, is used to construct the pattern of active frames.
+    
+    **stim.segment_start :** *int*
+        The index of the first movie segment under stimulation. For example, setting this value to 2 sets the frames within the first two segments to inactive.
+    
+    **stim.segment_end :** *int*
+        The index of the last movie segment under stimulation.
+    
+    **stim.frame_start :** *int*
+        The index of the frame within an stimulated movie segment corresponding to the start of stimulation.
+    
+    **stim.frame_end :** *int*
+        The index of the frame within an stimulated movie segment corresponding to the end of stimulation.
+
 ``preprocess``
 --------------
 
@@ -15,6 +59,8 @@ Command line options
     :prog: cellmincer
     :path: preprocess
     :nodefaultconst:
+
+.. _preprocess_config_options:
 
 Configuration options
 ~~~~~~~~~~~~~~~~~~~~~
@@ -96,6 +142,8 @@ Command line options
     :prog: cellmincer
     :path: train
     :nodefaultconst:
+
+.. _train_config_options:
 
 Configuration options
 ~~~~~~~~~~~~~~~~~~~~~
@@ -196,7 +244,7 @@ Configuration options
         The number of crops sampled from each training dataset to estimate its intensity threshold.
     
     **train.importance.pivot :** *float*
-        A value between 0 and 1 denoting the high-intensity proportion of crops to be resampled. For example, if pivot were set to 0.001, the most intensive 0.1\% of crops will be resampled to 50\% of each training minibatch. 
+        A value between 0 and 1 denoting the high-intensity proportion of crops to be resampled. For example, if pivot were set to 0.001, the most intensive 0.1\% of crops will be resampled to 50\% of each training minibatch.
 
 **train.lr_params :** *dict*
     The learning rate scheduler settings. Below are the options for **train.lr_params.type** and each type's associated hyperparameters.
