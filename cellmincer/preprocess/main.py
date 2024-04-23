@@ -351,12 +351,13 @@ class Preprocess:
                 active_mask[i_seg * self.n_frames_per_segment + self.trim['trim_left']:
                      (i_seg + 1) * self.n_frames_per_segment - self.trim['trim_right']]
                 for i_seg in range(self.n_segments)])
+        elif not self.infer_active_t_range:
+            active_mask = np.ones((movie_txy.shape[0],), dtype=np.bool)
 
         logging.info('Extracting features...')
         feature_extractor = OptopatchGlobalFeatureExtractor(
             movie_txy=movie_txy,
             active_mask=active_mask,
-            infer_active_t_range=self.infer_active_t_range,
             max_depth=self.feature_depth)
 
         return feature_extractor

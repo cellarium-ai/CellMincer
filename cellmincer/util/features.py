@@ -236,18 +236,12 @@ def upsample_to_numpy(frame_xy: torch.Tensor, depth: int):
             align_corners=False,
             scale_factor=2).squeeze(0).squeeze(0).cpu().numpy()
 
-
-def get_continuous_1d_mask(mask_t: np.ndarray, smoothing = 11) -> np.ndarray:
-    smooth_mask_t = np.convolve(mask_t, np.ones(smoothing)/smoothing, mode='same')
-    return smooth_mask_t > 0.5
-
     
 class OptopatchGlobalFeatureExtractor:
     def __init__(
             self,
             movie_txy: np.ndarray,
             active_mask: Optional[np.ndarray],
-            infer_active_t_range: bool = False,
             max_depth: int = 3,
             detrending_order: int = 10,
             trend_func: str = 'mean',
@@ -262,41 +256,59 @@ class OptopatchGlobalFeatureExtractor:
         self.downsampling_mode = downsampling_mode
         self.padding_mode = padding_mode
         self.dtype = dtype
-        
+
         # containers
-        self.active_mask_t = active_mask if active_mask is not None else self.determine_active_t_range(movie_txy, infer_active_t_range)
+        self.active_mask_t = active_mask if active_mask is not None else self._infer_active_t_range(movie_txy)
         self.features = OptopatchGlobalFeatureContainer()
-        
+
         # populate features
         self._populate_features()
-        
+
     @staticmethod
-    def determine_active_t_range(
+    def _infer_active_t_range(
             movie_txy: np.ndarray,
-            infer_active_t_range: bool):
+            strategy: str = 'prominence',
+            n_frame_smoothing: int = 7,
+            prominence_bins: int = 100,
+            prominence_threshold: float = 0.125):
+        '''
+        Identifies active frames of movie using an adaptation of foreground separation.
         
-        if infer_active_t_range:
-            m_t = np.mean(movie_txy, axis=(-1, -2))
-            
-            smoothing = 7
-            before_pad = smoothing // 2
-            after_pad = smoothing - before_pad - 1
-            
-            smooth_m_t = np.convolve(np.pad(m_t, (before_pad, after_pad), mode='edge'), np.ones(smoothing)/smoothing, mode='valid')
-            m_histo, m_bins = np.histogram(smooth_m_t, bins=100)
-            
-            # reasonable values, may need to be based on experiment structure (eg. n_seg, frames_per_seg)
-            prominence = np.ptp(m_histo) / 8
-            
+        The "otsu" strategy is recommended when the average intensity during activity is generally uniform throughout the movie.
+        The "prominence" strategy is recommended when the movie exhibits varying levels of average activity, as when the stimulation intensity is varied.
+        
+        :param movie_txy: The movie over which activity is inferred.
+        :param strategy: The strategy with which the activity threshold is computed.
+        :param n_frame_smoothing: The width of the moving average window applied to the average intensity, for prominence calculation.
+        :param prominence_bins: The number of bins over which average intensity is binned. Recommended to set large enough to resolve the separation between the background frames cluster and the weakest foreground frames cluster.
+        :param prominence_threshold: Prominence threshold for histogram peak-finding, as a proportion of total histogram frequency range.
+        '''
+        mask_t = np.mean(movie_txy, axis=(-1, -2))
+        
+        assert strategy in ('otsu', 'prominence')
+
+        if strategy == 'otsu':
+            threshold = threshold_otsu(mask_t)
+        elif strategy == 'prominence':
+            before_pad = n_frame_smoothing // 2
+            after_pad = n_frame_smoothing - before_pad - 1
+
+            smooth_mask_t = np.convolve(np.pad(mask_t, (before_pad, after_pad), mode='edge'), np.ones(n_frame_smoothing) / n_frame_smoothing, mode='valid')
+            m_histo, m_bins = np.histogram(smooth_mask_t, bins=prominence_bins)
+
+            prominence = np.ptp(m_histo) * prominence_threshold
+
             peaks, _ = find_peaks(m_histo, prominence=prominence)
             threshold = (m_bins[peaks[0]] + m_bins[peaks[1]]) / 2
-#             threshold = threshold_otsu(m_t)
-            logging.info(f'threshold: {threshold}')
-            
-            active_mask_t = get_continuous_1d_mask(m_t > threshold)
-        else:
-            active_mask_t = np.ones((movie_txy.shape[0],), dtype=np.bool)
+        logging.info(f'threshold: {threshold}')
+
+        active_mask_t = self._get_continuous_1d_mask(mask_t > threshold)
         return active_mask_t
+
+    @staticmethod
+    def _get_continuous_1d_mask(mask_t: np.ndarray, n_frame_smoothing: int = 11) -> np.ndarray:
+        smooth_mask_t = np.convolve(mask_t, np.ones(n_frame_smoothing) / n_frame_smoothing, mode='same')
+        return smooth_mask_t > 0.5
 
     def _populate_features(self):
         # pad the original movie to power of two
