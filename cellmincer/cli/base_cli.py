@@ -14,7 +14,6 @@ import importlib
 # New tools should be added to this list.
 TOOL_NAME_LIST = [
     'preprocess',
-    'feature',
     'train',
     'denoise'
 ]

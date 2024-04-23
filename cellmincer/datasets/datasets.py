@@ -112,7 +112,7 @@ class MovieDataset(Dataset):
         over_pivot = item * 2 < self.length if self.pivot is not None else None
         return self._generate_random_slice(movie_idx, over_pivot)
 
-    def _generate_random_slice(self, movie_idx: int, over_pivot: bool | None):
+    def _generate_random_slice(self, movie_idx: int, over_pivot: Optional[bool]):
         '''
         Generates a single random movie crop from a specified movie, restricted to being
         either over or under the intensity threshold if importance sampling is being used.

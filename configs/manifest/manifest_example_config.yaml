@@ -5,3 +5,4 @@ n_segments: 7
 order: tyx
 sampling_rate: 500
 width: 512
+infer_active_t_range: true
