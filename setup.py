@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 import os
-import setuptools
-
+from setuptools import setup, find_packages
 
 def readme():
     with open('README.md') as f:
@@ -26,7 +25,7 @@ rtd_requires = [
     line.rstrip() for line in open(os.path.join(os.path.dirname(__file__), "REQUIREMENTS-RTD.txt"))
 ]
 
-setuptools.setup(
+setup(
     name='cellmincer',
     version='0.1.0',
     description='A software package for learning self-supervised denoising models for voltage-imaging movies',
@@ -41,7 +40,7 @@ setuptools.setup(
     url='http://github.com/broadinstitute/CellMincer',
     author='Brice Wang, Mehrtash Babadi',
     license='BSD (3-Clause)',
-    packages=['cellmincer'],
+    packages=find_packages(),
     install_requires=install_requires,
     extras_require={
         'dev': rtd_requires + [
