@@ -3,6 +3,7 @@ import torch
 import logging
 from dataclasses import dataclass, field
 from typing import List, Optional
+from skimage.filters import threshold_otsu
 from scipy.signal import find_peaks
 
 
@@ -302,7 +303,7 @@ class OptopatchGlobalFeatureExtractor:
             threshold = (m_bins[peaks[0]] + m_bins[peaks[1]]) / 2
         logging.info(f'threshold: {threshold}')
 
-        active_mask_t = self._get_continuous_1d_mask(mask_t > threshold)
+        active_mask_t = OptopatchGlobalFeatureExtractor._get_continuous_1d_mask(mask_t > threshold)
         return active_mask_t
 
     @staticmethod
